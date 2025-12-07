@@ -3,24 +3,88 @@ mod server;
 mod mods;
 mod ui;
 mod process;
+mod settings;
 
 use eframe::egui;
 use server::{ServerEntry, ServerList};
 use process::ServerProcess;
+use settings::AppSettings;
+use tray_icon::{
+    menu::{Menu, MenuEvent, MenuItem},
+    TrayIcon, TrayIconBuilder,
+};
+use std::sync::mpsc::{channel, Receiver};
 
 fn main() -> eframe::Result<()> {
+    let settings = AppSettings::load();
+    
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1200.0, 700.0])
-            .with_title("BeamMP Server Manager"),
+            .with_title("BeamMP Server Manager")
+            .with_visible(!settings.start_minimized),
         ..Default::default()
     };
 
     eframe::run_native(
         "BeamMP Server Manager",
         options,
-        Box::new(|_cc| Ok(Box::new(BeamMpManagerApp::new()))),
+        Box::new(|cc| {
+            // Setup system tray
+            let tray_menu = Menu::new();
+            let show_item = MenuItem::new("Show", true, None);
+            let quit_item = MenuItem::new("Quit", true, None);
+            tray_menu.append(&show_item).ok();
+            tray_menu.append(&quit_item).ok();
+
+            let icon_rgba = create_tray_icon();
+            let icon = tray_icon::icon::Icon::from_rgba(icon_rgba.clone(), 32, 32)
+                .expect("Failed to create tray icon");
+
+            let tray = TrayIconBuilder::new()
+                .with_menu(Box::new(tray_menu))
+                .with_tooltip("BeamMP Server Manager")
+                .with_icon(icon)
+                .build()
+                .expect("Failed to create tray icon");
+
+            let menu_channel = MenuEvent::receiver();
+
+            Ok(Box::new(BeamMpManagerApp::new(
+                cc,
+                tray,
+                menu_channel,
+                show_item.id(),
+                quit_item.id(),
+            )))
+        }),
     )
+}
+
+fn create_tray_icon() -> Vec<u8> {
+    // Create a simple 32x32 icon (blue circle)
+    let size = 32;
+    let mut rgba = vec![0u8; size * size * 4];
+    
+    for y in 0..size {
+        for x in 0..size {
+            let dx = x as f32 - 16.0;
+            let dy = y as f32 - 16.0;
+            let dist = (dx * dx + dy * dy).sqrt();
+            
+            let idx = (y * size + x) * 4;
+            if dist < 14.0 {
+                rgba[idx] = 30;      // R
+                rgba[idx + 1] = 144; // G
+                rgba[idx + 2] = 255; // B
+                rgba[idx + 3] = 255; // A
+            } else {
+                rgba[idx + 3] = 0;   // Transparent
+            }
+        }
+    }
+    
+    rgba
 }
 
 struct BeamMpManagerApp {
@@ -33,6 +97,11 @@ struct BeamMpManagerApp {
     running_process: Option<RunningProcess>,
     terminal_output: Vec<String>,
     auto_scroll_terminal: bool,
+    settings: AppSettings,
+    _tray_icon: TrayIcon,
+    menu_channel: Receiver<MenuEvent>,
+    show_menu_id: tray_icon::menu::MenuId,
+    quit_menu_id: tray_icon::menu::MenuId,
 }
 
 struct RunningProcess {
@@ -44,6 +113,7 @@ struct RunningProcess {
 enum Tab {
     Config,
     Mods,
+    Settings,
 }
 
 struct StatusMessage {
@@ -62,8 +132,15 @@ enum DeleteConfirmation {
 }
 
 impl BeamMpManagerApp {
-    fn new() -> Self {
+    fn new(
+        _cc: &eframe::CreationContext,
+        tray_icon: TrayIcon,
+        menu_channel: Receiver<MenuEvent>,
+        show_menu_id: tray_icon::menu::MenuId,
+        quit_menu_id: tray_icon::menu::MenuId,
+    ) -> Self {
         let server_list = ServerList::load().unwrap_or_default();
+        let settings = AppSettings::load();
         
         Self {
             server_list,
@@ -75,6 +152,11 @@ impl BeamMpManagerApp {
             running_process: None,
             terminal_output: Vec::new(),
             auto_scroll_terminal: true,
+            settings,
+            _tray_icon: tray_icon,
+            menu_channel,
+            show_menu_id,
+            quit_menu_id,
         }
     }
 
@@ -186,7 +268,29 @@ impl BeamMpManagerApp {
 }
 
 impl eframe::App for BeamMpManagerApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        // Handle tray menu events
+        if let Ok(event) = self.menu_channel.try_recv() {
+            if event.id == self.show_menu_id {
+                frame.set_visible(true);
+                frame.focus();
+            } else if event.id == self.quit_menu_id {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            }
+        }
+
+        // Handle close request (X button)
+        if ctx.input(|i| i.viewport().close_requested()) {
+            if self.settings.minimize_to_tray {
+                // Minimize to tray instead of closing
+                frame.set_visible(false);
+                ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            } else {
+                // Allow normal close
+                // The app will exit
+            }
+        }
+
         // Update terminal output
         self.update_terminal();
         
@@ -395,6 +499,7 @@ impl eframe::App for BeamMpManagerApp {
                     ui.horizontal(|ui| {
                         ui.selectable_value(&mut self.current_tab, Tab::Config, "Config");
                         ui.selectable_value(&mut self.current_tab, Tab::Mods, "Mods");
+                        ui.selectable_value(&mut self.current_tab, Tab::Settings, "Settings");
                     });
                     ui.separator();
 
@@ -410,6 +515,9 @@ impl eframe::App for BeamMpManagerApp {
                                 &mut self.status_message,
                                 &mut self.delete_confirmation,
                             );
+                        }
+                        Tab::Settings => {
+                            ui::settings_tab::show(ui, &mut self.settings, &mut self.status_message);
                         }
                     }
                 } else {

@@ -14,7 +14,12 @@ A desktop application for managing BeamMP dedicated servers, built with Rust and
   - Start and stop BeamMP servers directly from the app
   - Real-time console output display
   - Per-server process management
-- **Persistent Storage**: Server list saved in your user config directory
+- **System Tray Integration**:
+  - Minimize to system tray instead of closing
+  - Right-click tray icon menu (Show/Quit)
+  - Optional start minimized to tray
+  - Configurable behavior via Settings
+- **Persistent Storage**: Server list and settings saved in your user config directory
 
 ## Requirements
 
@@ -77,12 +82,36 @@ Or run the compiled executable directly from `target/release/`.
 4. Use **Auto-scroll** to automatically scroll to the latest output
 5. Click **Clear** to clear the console output
 
+### Settings
+
+1. Select a server and go to the **Settings** tab
+2. Configure:
+   - **Minimize to system tray when closing**: When enabled, clicking the X button hides the app to the system tray instead of exiting
+   - **Start minimized to tray**: Launch the app directly to the system tray
+3. Settings are auto-saved when changed
+
+### System Tray
+
+When minimize-to-tray is enabled:
+- Click the **X** button to hide the app to the system tray
+- Look for the blue circle icon in your system tray
+- **Right-click** the tray icon to access:
+  - **Show**: Restore the window
+  - **Quit**: Completely exit the application
+- The app continues running in the background (useful for keeping servers running)
+
 ## Data Storage
 
-The app stores your server list in:
+The app stores configuration files in your user config directory:
+
+**Server List** (`servers.json`):
 - **Windows**: `C:\Users\<USERNAME>\AppData\Roaming\BeamMP-Manager\servers.json`
 - **Linux**: `~/.config/BeamMP-Manager/servers.json`
 - **macOS**: `~/Library/Application Support/BeamMP-Manager/servers.json`
+
+**Settings** (`settings.json`):
+- Same directory as above
+- Contains: minimize-to-tray preferences, startup behavior
 
 ## License
 
