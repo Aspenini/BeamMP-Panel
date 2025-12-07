@@ -2,9 +2,11 @@ mod config;
 mod server;
 mod mods;
 mod ui;
+mod process;
 
 use eframe::egui;
 use server::{ServerEntry, ServerList};
+use process::ServerProcess;
 
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
@@ -28,6 +30,14 @@ struct BeamMpManagerApp {
     status_message: Option<StatusMessage>,
     mods_cache: Option<ModsCache>,
     delete_confirmation: Option<DeleteConfirmation>,
+    running_process: Option<RunningProcess>,
+    terminal_output: Vec<String>,
+    auto_scroll_terminal: bool,
+}
+
+struct RunningProcess {
+    server_id: String,
+    process: ServerProcess,
 }
 
 #[derive(PartialEq)]
@@ -62,6 +72,9 @@ impl BeamMpManagerApp {
             status_message: None,
             mods_cache: None,
             delete_confirmation: None,
+            running_process: None,
+            terminal_output: Vec::new(),
+            auto_scroll_terminal: true,
         }
     }
 
@@ -121,10 +134,66 @@ impl BeamMpManagerApp {
             }
         }
     }
+
+    fn start_server(&mut self, server_id: String, server_path: std::path::PathBuf) {
+        match ServerProcess::start(&server_path) {
+            Ok(process) => {
+                self.terminal_output.clear();
+                self.terminal_output.push(format!("Starting server at {}...", server_path.display()));
+                self.running_process = Some(RunningProcess {
+                    server_id,
+                    process,
+                });
+                self.set_status("Server started".to_string(), false);
+            }
+            Err(e) => {
+                self.set_status(format!("Failed to start server: {}", e), true);
+            }
+        }
+    }
+
+    fn stop_server(&mut self) {
+        if let Some(mut running) = self.running_process.take() {
+            match running.process.stop() {
+                Ok(_) => {
+                    self.terminal_output.push("Server stopped.".to_string());
+                    self.set_status("Server stopped".to_string(), false);
+                }
+                Err(e) => {
+                    self.set_status(format!("Failed to stop server: {}", e), true);
+                }
+            }
+        }
+    }
+
+    fn update_terminal(&mut self) {
+        // Check if process is still running and read output
+        if let Some(running) = &mut self.running_process {
+            if !running.process.is_running() {
+                self.terminal_output.push("Server process exited.".to_string());
+                self.running_process = None;
+            } else {
+                let new_lines = running.process.read_output();
+                self.terminal_output.extend(new_lines);
+                
+                // Limit terminal output to last 1000 lines
+                if self.terminal_output.len() > 1000 {
+                    self.terminal_output.drain(0..self.terminal_output.len() - 1000);
+                }
+            }
+        }
+    }
 }
 
 impl eframe::App for BeamMpManagerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Update terminal output
+        self.update_terminal();
+        
+        // Request continuous repaint when server is running
+        if self.running_process.is_some() {
+            ctx.request_repaint();
+        }
         // Handle delete confirmation modal
         if let Some(confirmation) = &self.delete_confirmation {
             let mut should_close = false;
@@ -190,6 +259,70 @@ impl eframe::App for BeamMpManagerApp {
                 }
             }
         }
+
+        // Terminal Panel at bottom
+        egui::TopBottomPanel::bottom("terminal_panel")
+            .resizable(true)
+            .min_height(150.0)
+            .default_height(200.0)
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.heading("Server Console");
+                    
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.button("Clear").clicked() {
+                            self.terminal_output.clear();
+                        }
+                        
+                        ui.checkbox(&mut self.auto_scroll_terminal, "Auto-scroll");
+                        
+                        // Start/Stop buttons
+                        if let Some(running) = &self.running_process {
+                            if let Some(idx) = self.selected_server_index {
+                                if let Some(server) = self.server_list.servers.get(idx) {
+                                    if running.server_id == server.id {
+                                        ui.colored_label(egui::Color32::GREEN, "● Running");
+                                        if ui.button("Stop Server").clicked() {
+                                            self.stop_server();
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            if let Some(idx) = self.selected_server_index {
+                                if let Some(server) = self.server_list.servers.get(idx) {
+                                    let server_id = server.id.clone();
+                                    let server_path = server.path.clone();
+                                    if ui.button("Start Server").clicked() {
+                                        self.start_server(server_id, server_path);
+                                    }
+                                }
+                            }
+                        }
+                    });
+                });
+                
+                ui.separator();
+                
+                let text_style = egui::TextStyle::Monospace;
+                let row_height = ui.text_style_height(&text_style);
+                
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .stick_to_bottom(self.auto_scroll_terminal)
+                    .show_rows(
+                        ui,
+                        row_height,
+                        self.terminal_output.len(),
+                        |ui, row_range| {
+                            for row in row_range {
+                                if let Some(line) = self.terminal_output.get(row) {
+                                    ui.label(egui::RichText::new(line).monospace());
+                                }
+                            }
+                        },
+                    );
+            });
 
         egui::TopBottomPanel::bottom("status_bar").show(ctx, |ui| {
             ui.horizontal(|ui| {

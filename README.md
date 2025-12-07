@@ -10,6 +10,10 @@ A desktop application for managing BeamMP dedicated servers, built with Rust and
   - Add new mods via file picker
   - Enable/disable mods by moving between `Resources` and `Resources_disabled`
   - Delete mods with confirmation
+- **Integrated Terminal**: 
+  - Start and stop BeamMP servers directly from the app
+  - Real-time console output display
+  - Per-server process management
 - **Persistent Storage**: Server list saved in your user config directory
 
 ## Requirements
@@ -58,6 +62,20 @@ Or run the compiled executable directly from `target/release/`.
    - **Disable**: Move mod from `Resources` to `Resources_disabled`
    - **Enable**: Move mod back from `Resources_disabled` to `Resources`
    - **Delete**: Permanently remove the mod file
+
+### Running Servers
+
+1. Select a server from the list
+2. In the **Server Console** panel at the bottom:
+   - Click **Start Server** to launch `BeamMP-Server.exe`
+   - View real-time console output
+   - Click **Stop Server** to terminate the process
+3. The console displays:
+   - Server startup messages
+   - Player connections and events
+   - Errors (prefixed with `[ERROR]`)
+4. Use **Auto-scroll** to automatically scroll to the latest output
+5. Click **Clear** to clear the console output
 
 ## Data Storage
 
