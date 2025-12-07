@@ -4,116 +4,83 @@ A desktop application for managing BeamMP dedicated servers, built with Rust and
 
 ## Features
 
-- **Server Management**: Register and manage multiple BeamMP server installations
-- **Config Editor**: Edit `ServerConfig.toml` through an intuitive GUI
-- **Mod Management**: 
-  - Add new mods via file picker
-  - Enable/disable mods by moving between `Resources` and `Resources_disabled`
-  - Delete mods with confirmation
-- **Integrated Terminal**: 
-  - Start and stop BeamMP servers directly from the app
-  - Real-time console output display
-  - Per-server process management
-- **System Tray Integration**:
-  - Minimize to system tray instead of closing
-  - Right-click tray icon menu (Show/Quit)
-  - Optional start minimized to tray
-  - Configurable behavior via Settings
-- **Persistent Storage**: Server list and settings saved in your user config directory
+- **Server Management** - Register and manage multiple BeamMP server installations
+- **Configuration Editor** - Edit ServerConfig.toml through an intuitive GUI interface
+- **Mod Management** - Add, enable, disable, and delete mods with a visual interface
+- **Server Control** - Execute server commands, manage players, and broadcast messages
+- **Integrated Terminal** - Per-server console with real-time output when servers are running
+- **Persistent Storage** - Server configurations saved automatically
 
 ## Requirements
 
-- Rust 1.70+ (2021 edition or later)
-- A BeamMP server installation (the app manages existing servers, it doesn't create them)
+- Rust 1.70 or later
+- Existing BeamMP server installation(s)
 
-## Building
+## Installation
+
+Build the application from source:
 
 ```bash
 cargo build --release
 ```
 
-The executable will be in `target/release/beammp-manager` (or `beammp-manager.exe` on Windows).
-
-## Running
-
-```bash
-cargo run --release
-```
-
-Or run the compiled executable directly from `target/release/`.
+The compiled binary will be located at `target/release/beammp-manager` (or `beammp-manager.exe` on Windows).
 
 ## Usage
 
-### Adding a Server
+### Server Management
 
-1. Click **"Add Server"** in the left panel
-2. Select the folder containing your BeamMP server (must have `ServerConfig.toml`)
+**Adding a Server**
+1. Click "Add Server" in the left panel
+2. Select the folder containing your BeamMP server executable and ServerConfig.toml
 3. The server will appear in the list
 
-### Editing Configuration
+**Removing a Server**
+1. Select the server from the list
+2. Click "Remove Server"
+3. Confirm the removal (files on disk are not deleted)
+
+### Configuration
 
 1. Select a server from the list
-2. Go to the **Config** tab
-3. Edit any settings you want
-4. Click **Apply** to save changes to `ServerConfig.toml`
-5. Click **Revert** to discard unsaved changes
+2. Navigate to the Config tab
+3. Modify settings as needed
+4. Click "Apply" to save changes or "Revert" to discard
 
-### Managing Mods
+Supported settings include port, authentication, player limits, maps, and more.
 
+### Mod Management
+
+1. Select a server and navigate to the Mods tab
+2. Available actions:
+   - **Add Mod** - Import mod files into the Resources folder
+   - **Enable/Disable** - Toggle mods by moving them between Resources and Resources_disabled
+   - **Delete** - Permanently remove mod files
+
+### Server Control
+
+**Starting a Server**
 1. Select a server from the list
-2. Go to the **Mods** tab
-3. Use the buttons to:
-   - **Add Mod**: Copy files into the `Resources` folder
-   - **Disable**: Move mod from `Resources` to `Resources_disabled`
-   - **Enable**: Move mod back from `Resources_disabled` to `Resources`
-   - **Delete**: Permanently remove the mod file
+2. Click "Start Server" in the top-right corner
+3. The server console appears at the bottom showing real-time output
 
-### Running Servers
+**Server Commands**
+Navigate to the Control tab while a server is running to access:
+- Player list management
+- Player kick functionality
+- Server-wide message broadcasting
+- Quick access to common server commands (status, version, reload mods, etc.)
 
-1. Select a server from the list
-2. In the **Server Console** panel at the bottom:
-   - Click **Start Server** to launch `BeamMP-Server.exe`
-   - View real-time console output
-   - Click **Stop Server** to terminate the process
-3. The console displays:
-   - Server startup messages
-   - Player connections and events
-   - Errors (prefixed with `[ERROR]`)
-4. Use **Auto-scroll** to automatically scroll to the latest output
-5. Click **Clear** to clear the console output
+All command outputs are displayed in the integrated console.
 
-### Settings
+## Configuration Storage
 
-1. Select a server and go to the **Settings** tab
-2. Configure:
-   - **Minimize to system tray when closing**: When enabled, clicking the X button hides the app to the system tray instead of exiting
-   - **Start minimized to tray**: Launch the app directly to the system tray
-3. Settings are auto-saved when changed
+The application stores server lists in platform-specific directories:
 
-### System Tray
-
-When minimize-to-tray is enabled:
-- Click the **X** button to hide the app to the system tray
-- Look for the blue circle icon in your system tray
-- **Right-click** the tray icon to access:
-  - **Show**: Restore the window
-  - **Quit**: Completely exit the application
-- The app continues running in the background (useful for keeping servers running)
-
-## Data Storage
-
-The app stores configuration files in your user config directory:
-
-**Server List** (`servers.json`):
-- **Windows**: `C:\Users\<USERNAME>\AppData\Roaming\BeamMP-Manager\servers.json`
+- **Windows**: `%APPDATA%\BeamMP-Manager\servers.json`
 - **Linux**: `~/.config/BeamMP-Manager/servers.json`
 - **macOS**: `~/Library/Application Support/BeamMP-Manager/servers.json`
 
-**Settings** (`settings.json`):
-- Same directory as above
-- Contains: minimize-to-tray preferences, startup behavior
-
 ## License
 
-MIT or Apache-2.0 (choose your preferred license)
-
+MIT

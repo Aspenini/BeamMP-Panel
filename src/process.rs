@@ -1,13 +1,15 @@
 use anyhow::{anyhow, Result};
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
-use std::process::{Child, Command, Stdio};
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::mpsc::{channel, Receiver};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 pub struct ServerProcess {
     child: Child,
     output_receiver: Receiver<String>,
+    stdin: Arc<Mutex<ChildStdin>>,
     _output_thread: thread::JoinHandle<()>,
 }
 
@@ -27,12 +29,16 @@ impl ServerProcess {
 
         let mut child = Command::new(&exe_path)
             .current_dir(server_path)
+            .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
 
         let stdout = child.stdout.take().ok_or_else(|| anyhow!("Failed to capture stdout"))?;
         let stderr = child.stderr.take().ok_or_else(|| anyhow!("Failed to capture stderr"))?;
+        let stdin = Arc::new(Mutex::new(
+            child.stdin.take().ok_or_else(|| anyhow!("Failed to capture stdin"))?
+        ));
 
         let (tx, rx) = channel();
 
@@ -61,12 +67,29 @@ impl ServerProcess {
         Ok(Self {
             child,
             output_receiver: rx,
+            stdin,
             _output_thread: output_thread,
         })
     }
 
+    pub fn send_command(&self, command: &str) -> Result<()> {
+        let mut stdin = self.stdin.lock().map_err(|e| anyhow!("Failed to lock stdin: {}", e))?;
+        writeln!(stdin, "{}", command)?;
+        stdin.flush()?;
+        Ok(())
+    }
+
     pub fn stop(&mut self) -> Result<()> {
-        self.child.kill()?;
+        // Try graceful shutdown first
+        let _ = self.send_command("exit");
+        
+        // Wait a bit for graceful shutdown
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        
+        // Force kill if still running
+        if self.is_running() {
+            self.child.kill()?;
+        }
         self.child.wait()?;
         Ok(())
     }
