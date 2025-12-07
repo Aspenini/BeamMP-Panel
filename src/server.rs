@@ -79,7 +79,15 @@ impl ServerEntry {
         if let Some(config) = &self.edited_config {
             let config_str = toml::to_string_pretty(config)?;
             let config_path = self.path.join("ServerConfig.toml");
-            fs::write(config_path, config_str)?;
+            
+            // Use buffered I/O for better performance
+            use std::io::BufWriter;
+            let file = std::fs::File::create(config_path)?;
+            let mut writer = BufWriter::new(file);
+            use std::io::Write;
+            writer.write_all(config_str.as_bytes())?;
+            writer.flush()?;
+            
             self.loaded_config = Some(config.clone());
             Ok(())
         } else {
@@ -95,8 +103,24 @@ impl ServerEntry {
 
     pub fn is_config_dirty(&self) -> bool {
         if let (Some(loaded), Some(edited)) = (&self.loaded_config, &self.edited_config) {
-            // Simple comparison - in real world you might want a more sophisticated check
-            toml::to_string(loaded).ok() != toml::to_string(edited).ok()
+            // Optimized: avoid unnecessary serialization by comparing specific fields
+            loaded.general.port != edited.general.port ||
+            loaded.general.auth_key != edited.general.auth_key ||
+            loaded.general.allow_guests != edited.general.allow_guests ||
+            loaded.general.log_chat != edited.general.log_chat ||
+            loaded.general.debug != edited.general.debug ||
+            loaded.general.ip != edited.general.ip ||
+            loaded.general.private != edited.general.private ||
+            loaded.general.information_packet != edited.general.information_packet ||
+            loaded.general.name != edited.general.name ||
+            loaded.general.tags != edited.general.tags ||
+            loaded.general.max_cars != edited.general.max_cars ||
+            loaded.general.max_players != edited.general.max_players ||
+            loaded.general.map != edited.general.map ||
+            loaded.general.description != edited.general.description ||
+            loaded.general.resource_folder != edited.general.resource_folder ||
+            loaded.misc.im_scared_of_updates != edited.misc.im_scared_of_updates ||
+            loaded.misc.update_reminder_time != edited.misc.update_reminder_time
         } else {
             false
         }
@@ -146,7 +170,14 @@ impl ServerList {
     pub fn save(&self) -> Result<()> {
         let path = Self::get_config_path()?;
         let contents = serde_json::to_string_pretty(self)?;
-        fs::write(path, contents)?;
+        
+        // Use buffered I/O for better performance
+        use std::io::BufWriter;
+        let file = std::fs::File::create(path)?;
+        let mut writer = BufWriter::new(file);
+        use std::io::Write;
+        writer.write_all(contents.as_bytes())?;
+        writer.flush()?;
         Ok(())
     }
 

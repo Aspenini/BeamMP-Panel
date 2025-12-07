@@ -5,7 +5,7 @@ mod ui;
 mod process;
 
 use eframe::egui;
-use server::{ServerEntry, ServerList};
+use server::ServerList;
 use process::ServerProcess;
 
 fn main() -> eframe::Result<()> {
@@ -78,9 +78,9 @@ impl BeamMpManagerApp {
             mods_cache: None,
             delete_confirmation: None,
             running_process: None,
-            terminal_output: Vec::new(),
+            terminal_output: Vec::with_capacity(1000), // Preallocate
             auto_scroll_terminal: true,
-            player_list: Vec::new(),
+            player_list: Vec::with_capacity(32), // Preallocate for typical player counts
             kick_player_name: String::new(),
             kick_reason: String::new(),
             broadcast_message: String::new(),
@@ -118,11 +118,6 @@ impl BeamMpManagerApp {
                 self.set_status("Server removed from manager".to_string(), false);
             }
         }
-    }
-
-    fn get_selected_server_mut(&mut self) -> Option<&mut ServerEntry> {
-        self.selected_server_index
-            .and_then(|idx| self.server_list.servers.get_mut(idx))
     }
 
     fn reload_mods(&mut self) {
@@ -175,22 +170,27 @@ impl BeamMpManagerApp {
         }
     }
 
-    fn update_terminal(&mut self) {
+    fn update_terminal(&mut self) -> bool {
         // Check if process is still running and read output
+        // Returns true if terminal was updated (for conditional repainting)
         if let Some(running) = &mut self.running_process {
             if !running.process.is_running() {
                 self.terminal_output.push("Server process exited.".to_string());
                 self.running_process = None;
+                return true;
             } else {
                 let new_lines = running.process.read_output();
+                let has_new_output = !new_lines.is_empty();
                 self.terminal_output.extend(new_lines);
                 
                 // Limit terminal output to last 1000 lines
                 if self.terminal_output.len() > 1000 {
                     self.terminal_output.drain(0..self.terminal_output.len() - 1000);
                 }
+                return has_new_output;
             }
         }
+        false
     }
 
     fn send_server_command(&mut self, command: &str) {
@@ -219,11 +219,11 @@ impl BeamMpManagerApp {
 
 impl eframe::App for BeamMpManagerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Update terminal output
-        self.update_terminal();
+        // Update terminal output and check if there were changes
+        let terminal_changed = self.update_terminal();
         
-        // Request continuous repaint when server is running
-        if self.running_process.is_some() {
+        // Only request repaint if terminal actually changed (optimization)
+        if terminal_changed {
             ctx.request_repaint();
         }
         // Handle delete confirmation modal

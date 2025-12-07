@@ -10,7 +10,8 @@ pub struct ModEntry {
 }
 
 pub fn scan_mods(server_path: &Path, resource_folder: &str) -> Result<Vec<ModEntry>> {
-    let mut mods = Vec::new();
+    // Preallocate capacity for better performance
+    let mut mods = Vec::with_capacity(128);
 
     let enabled_root = server_path.join(resource_folder);
     let disabled_root = server_path.join(format!("{}_disabled", resource_folder));

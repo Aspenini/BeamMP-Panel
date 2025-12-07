@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::{sync_channel, Receiver};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -40,7 +40,8 @@ impl ServerProcess {
             child.stdin.take().ok_or_else(|| anyhow!("Failed to capture stdin"))?
         ));
 
-        let (tx, rx) = channel();
+        // Use bounded channel to prevent unbounded memory growth
+        let (tx, rx) = sync_channel(1000);
 
         // Spawn thread to read stdout
         let tx_clone = tx.clone();
