@@ -135,10 +135,6 @@ pub fn show(
             });
 
             ui.horizontal(|ui| {
-                if ui.button("🧹 Clear Console").clicked() {
-                    action = ControlAction::SendCommand("clear".to_string());
-                }
-
                 if ui.button("❓ Help").clicked() {
                     action = ControlAction::SendCommand("help".to_string());
                 }

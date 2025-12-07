@@ -6,6 +6,9 @@ use std::sync::mpsc::{sync_channel, Receiver};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 pub struct ServerProcess {
     child: Child,
     output_receiver: Receiver<String>,
@@ -27,12 +30,21 @@ impl ServerProcess {
             return Err(anyhow!("BeamMP server executable not found: {}", exe_path.display()));
         }
 
-        let mut child = Command::new(&exe_path)
+        let mut command = Command::new(&exe_path);
+        command
             .current_dir(server_path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
+            .stderr(Stdio::piped());
+
+        // Prevent console window from appearing on Windows
+        #[cfg(windows)]
+        {
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
+
+        let mut child = command.spawn()?;
 
         let stdout = child.stdout.take().ok_or_else(|| anyhow!("Failed to capture stdout"))?;
         let stderr = child.stderr.take().ok_or_else(|| anyhow!("Failed to capture stderr"))?;
