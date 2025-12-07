@@ -1,7 +1,10 @@
 [package]
-name = "beammp-manager"
+name = "beammp-panel"
 version = "0.1.0"
 edition = "2021"
+description = "A desktop application for managing BeamMP dedicated servers"
+license = "MIT"
+authors = ["Your Name <your.email@example.com>"]
 
 [dependencies]
 eframe = "0.29"
@@ -23,4 +26,10 @@ panic = "abort"         # Smaller binary, no unwinding
 
 [profile.release.package."*"]
 opt-level = 3
+
+[package.metadata.wix]
+upgrade-guid = "9C5E5B5E-5E5E-4E5E-9E5E-5E5E5E5E5E5E"
+path-guid = "A1A1A1A1-A1A1-A1A1-A1A1-A1A1A1A1A1A1"
+license = false
+eula = false
 

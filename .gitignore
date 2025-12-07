@@ -4,6 +4,10 @@
 *.pdb
 Cargo.lock
 
+# WiX
+/wix/*.wixobj
+/wix/*.wixpdb
+
 # IDE
 .vscode/
 .idea/
@@ -14,4 +18,3 @@ Cargo.lock
 # OS
 .DS_Store
 Thumbs.db
-

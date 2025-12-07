@@ -1,4 +1,4 @@
-# BeamMP Server Manager
+# BeamMP Panel
 
 A desktop application for managing BeamMP dedicated servers, built with Rust and egui.
 
@@ -24,7 +24,24 @@ Build the application from source:
 cargo build --release
 ```
 
-The compiled binary will be located at `target/release/beammp-manager` (or `beammp-manager.exe` on Windows).
+The compiled binary will be located at `target/release/beammp-panel` (or `beammp-panel.exe` on Windows).
+
+### Building MSI Installer (Windows)
+
+To create a Windows MSI installer:
+
+1. Install WiX Toolset: Download from https://wixtoolset.org/ or use `winget install WiX.Toolset`
+2. Install cargo-wix:
+```bash
+cargo install cargo-wix
+```
+
+3. Build the installer:
+```bash
+cargo wix
+```
+
+The MSI installer will be created at `target/wix/beammp-panel-0.1.0-x86_64.msi`.
 
 ## Usage
 
@@ -77,9 +94,9 @@ All command outputs are displayed in the integrated console.
 
 The application stores server lists in platform-specific directories:
 
-- **Windows**: `%APPDATA%\BeamMP-Manager\servers.json`
-- **Linux**: `~/.config/BeamMP-Manager/servers.json`
-- **macOS**: `~/Library/Application Support/BeamMP-Manager/servers.json`
+- **Windows**: `%APPDATA%\BeamMP-Panel\servers.json`
+- **Linux**: `~/.config/BeamMP-Panel/servers.json`
+- **macOS**: `~/Library/Application Support/BeamMP-Panel/servers.json`
 
 ## License
 

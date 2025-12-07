@@ -141,7 +141,7 @@ pub struct ServerList {
 
 impl ServerList {
     fn get_config_path() -> Result<PathBuf> {
-        let config_dir = directories::ProjectDirs::from("", "", "BeamMP-Manager")
+        let config_dir = directories::ProjectDirs::from("", "", "BeamMP-Panel")
             .ok_or_else(|| anyhow!("Failed to determine config directory"))?
             .config_dir()
             .to_path_buf();
