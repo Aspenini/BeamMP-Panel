@@ -31,6 +31,7 @@ struct BeamMpManagerApp {
     current_tab: Tab,
     status_message: Option<StatusMessage>,
     mods_cache: Option<ModsCache>,
+    current_mod_type: ModType,
     delete_confirmation: Option<DeleteConfirmation>,
     running_process: Option<RunningProcess>,
     terminal_output: Vec<String>,
@@ -61,6 +62,13 @@ struct StatusMessage {
 struct ModsCache {
     server_id: String,
     mods: Vec<mods::ModEntry>,
+    mod_type: ModType,
+}
+
+#[derive(PartialEq, Clone, Copy)]
+enum ModType {
+    Server,
+    Client,
 }
 
 enum DeleteConfirmation {
@@ -78,6 +86,7 @@ impl BeamMpManagerApp {
             current_tab: Tab::Config,
             status_message: None,
             mods_cache: None,
+            current_mod_type: ModType::Client, // Default to Client mods
             delete_confirmation: None,
             running_process: None,
             terminal_output: Vec::with_capacity(1000), // Preallocate
@@ -122,14 +131,21 @@ impl BeamMpManagerApp {
         }
     }
 
-    fn reload_mods(&mut self) {
+    fn reload_mods(&mut self, mod_type: ModType) {
         if let Some(idx) = self.selected_server_index {
             if let Some(server) = self.server_list.servers.get(idx) {
-                match mods::scan_mods(&server.path, &server.get_resource_folder()) {
+                let resource_folder = server.get_resource_folder();
+                let result = match mod_type {
+                    ModType::Server => mods::scan_server_mods(&server.path, &resource_folder),
+                    ModType::Client => mods::scan_client_mods(&server.path, &resource_folder),
+                };
+                
+                match result {
                     Ok(mods) => {
                         self.mods_cache = Some(ModsCache {
                             server_id: server.id.clone(),
                             mods,
+                            mod_type,
                         });
                     }
                     Err(e) => {
@@ -279,12 +295,13 @@ impl eframe::App for BeamMpManagerApp {
                     }
                     Some(DeleteConfirmation::Mod(idx)) => {
                         if let Some(cache) = &self.mods_cache {
+                            let mod_type = cache.mod_type;
                             if let Some(mod_entry) = cache.mods.get(idx) {
                                 if let Err(e) = mods::delete_mod(&mod_entry.full_path) {
                                     self.set_status(format!("Failed to delete mod: {}", e), true);
                                 } else {
                                     self.set_status("Mod deleted".to_string(), false);
-                                    self.reload_mods();
+                                    self.reload_mods(mod_type);
                                 }
                             }
                         }
@@ -358,7 +375,8 @@ impl eframe::App for BeamMpManagerApp {
                 };
 
                 if should_reload_mods {
-                    self.reload_mods();
+                    // Use the current mod type view
+                    self.reload_mods(self.current_mod_type);
                 }
 
                 // Get server info without holding mutable borrow
@@ -377,6 +395,7 @@ impl eframe::App for BeamMpManagerApp {
                     let mut should_stop = false;
                     let mut should_clear_terminal = false;
                     let mut control_action = ui::control_tab::ControlAction::None;
+                    let mut mods_action = ui::mods_tab::ModsAction::None;
 
                     // Top section with tabs and server controls
                     ui.horizontal(|ui| {
@@ -451,10 +470,11 @@ impl eframe::App for BeamMpManagerApp {
                                     ui::config_tab::show(ui, server, &mut self.status_message);
                                 }
                                 Tab::Mods => {
-                                    ui::mods_tab::show(
+                                    mods_action = ui::mods_tab::show(
                                         ui,
                                         server,
                                         &mut self.mods_cache,
+                                        self.current_mod_type,
                                         &mut self.status_message,
                                         &mut self.delete_confirmation,
                                     );
@@ -482,6 +502,19 @@ impl eframe::App for BeamMpManagerApp {
                     }
                     if should_clear_terminal {
                         self.terminal_output.clear();
+                    }
+                    
+                    // Handle mods tab actions
+                    match mods_action {
+                        ui::mods_tab::ModsAction::SwitchToServer => {
+                            self.current_mod_type = ModType::Server;
+                            self.reload_mods(ModType::Server);
+                        }
+                        ui::mods_tab::ModsAction::SwitchToClient => {
+                            self.current_mod_type = ModType::Client;
+                            self.reload_mods(ModType::Client);
+                        }
+                        ui::mods_tab::ModsAction::None => {}
                     }
                     
                     // Handle control tab actions
