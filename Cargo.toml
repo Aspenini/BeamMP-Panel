@@ -1,10 +1,10 @@
 [package]
-name = "beammp-panel"
-version = "0.1.0"
+name = "BeamMP-Panel"
+version = "0.1.1"
 edition = "2021"
 description = "A desktop application for managing BeamMP dedicated servers"
 license = "MIT"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["Aspenini"]
 
 [dependencies]
 eframe = "0.29"
