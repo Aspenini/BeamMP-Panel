@@ -32,6 +32,7 @@ struct BeamMpManagerApp {
     status_message: Option<StatusMessage>,
     mods_cache: Option<ModsCache>,
     current_mod_type: ModType,
+    current_mod_filter: ModFilter,
     delete_confirmation: Option<DeleteConfirmation>,
     running_process: Option<RunningProcess>,
     terminal_output: Vec<String>,
@@ -77,6 +78,13 @@ enum ModType {
     Client,
 }
 
+#[derive(PartialEq, Clone, Copy)]
+enum ModFilter {
+    All,
+    LevelsOnly,
+    VehiclesOnly,
+}
+
 enum DeleteConfirmation {
     Server(usize),
     Mod(usize),
@@ -93,6 +101,7 @@ impl BeamMpManagerApp {
             status_message: None,
             mods_cache: None,
             current_mod_type: ModType::Client, // Default to Client mods
+            current_mod_filter: ModFilter::All,
             delete_confirmation: None,
             running_process: None,
             terminal_output: Vec::with_capacity(1000), // Preallocate
@@ -553,6 +562,7 @@ impl eframe::App for BeamMpManagerApp {
                                         server,
                                         &mut self.mods_cache,
                                         self.current_mod_type,
+                                        self.current_mod_filter,
                                         &mut self.status_message,
                                         &mut self.delete_confirmation,
                                     );
@@ -609,6 +619,9 @@ impl eframe::App for BeamMpManagerApp {
                                     }
                                 }
                             }
+                        }
+                        ui::mods_tab::ModsAction::ChangeFilter(new_filter) => {
+                            self.current_mod_filter = new_filter;
                         }
                         ui::mods_tab::ModsAction::None => {}
                     }

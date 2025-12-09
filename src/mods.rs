@@ -148,42 +148,6 @@ fn scan_client_files(
     Ok(())
 }
 
-fn scan_directory(
-    root: &Path,
-    current: &Path,
-    enabled: bool,
-    mods: &mut Vec<ModEntry>,
-) -> Result<()> {
-    if !current.is_dir() {
-        return Ok(());
-    }
-
-    for entry in fs::read_dir(current)? {
-        let entry = entry?;
-        let path = entry.path();
-
-        if path.is_file() {
-            let relative_path = path
-                .strip_prefix(root)
-                .unwrap()
-                .to_string_lossy()
-                .replace('\\', "/");
-
-            mods.push(ModEntry {
-                relative_path,
-                full_path: path,
-                enabled,
-                is_level: false, // Only used for recursive scanning
-                is_vehicle: false,
-            });
-        } else if path.is_dir() {
-            scan_directory(root, &path, enabled, mods)?;
-        }
-    }
-
-    Ok(())
-}
-
 fn check_zip_content_type(zip_path: &Path) -> (bool, bool) {
     // Try to open and read the ZIP file
     let file = match fs::File::open(zip_path) {

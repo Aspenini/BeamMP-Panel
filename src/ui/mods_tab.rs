@@ -1,6 +1,6 @@
 use crate::mods;
 use crate::server::ServerEntry;
-use crate::{DeleteConfirmation, ModsCache, StatusMessage, ModType};
+use crate::{DeleteConfirmation, ModsCache, StatusMessage, ModType, ModFilter};
 use egui::{ScrollArea, Ui};
 
 pub enum ModsAction {
@@ -8,6 +8,7 @@ pub enum ModsAction {
     SwitchToServer,
     SwitchToClient,
     ViewDetails(usize), // Index of the mod to view details for
+    ChangeFilter(ModFilter),
 }
 
 pub fn show(
@@ -15,6 +16,7 @@ pub fn show(
     server: &ServerEntry,
     mods_cache: &mut Option<ModsCache>,
     current_mod_type: ModType,
+    current_mod_filter: ModFilter,
     status: &mut Option<StatusMessage>,
     delete_confirmation: &mut Option<DeleteConfirmation>,
 ) -> ModsAction {
@@ -31,6 +33,27 @@ pub fn show(
         if ui.selectable_label(current_mod_type == ModType::Server, "📁 Server").clicked() {
             if current_mod_type != ModType::Server {
                 action = ModsAction::SwitchToServer;
+            }
+        }
+        
+        // Show filter options only for Client mods
+        if current_mod_type == ModType::Client {
+            ui.separator();
+            ui.label("Filter:");
+            if ui.selectable_label(current_mod_filter == ModFilter::All, "All").clicked() {
+                if current_mod_filter != ModFilter::All {
+                    action = ModsAction::ChangeFilter(ModFilter::All);
+                }
+            }
+            if ui.selectable_label(current_mod_filter == ModFilter::LevelsOnly, "Levels").clicked() {
+                if current_mod_filter != ModFilter::LevelsOnly {
+                    action = ModsAction::ChangeFilter(ModFilter::LevelsOnly);
+                }
+            }
+            if ui.selectable_label(current_mod_filter == ModFilter::VehiclesOnly, "Vehicles").clicked() {
+                if current_mod_filter != ModFilter::VehiclesOnly {
+                    action = ModsAction::ChangeFilter(ModFilter::VehiclesOnly);
+                }
             }
         }
     });
@@ -90,14 +113,27 @@ pub fn show(
 
     match mods_cache {
         Some(cache) => {
-            if cache.mods.is_empty() {
+            // Apply filter for client mods
+            let filtered_mods: Vec<(usize, &mods::ModEntry)> = if current_mod_type == ModType::Client {
+                cache.mods.iter().enumerate().filter(|(_, mod_entry)| {
+                    match current_mod_filter {
+                        ModFilter::All => true,
+                        ModFilter::LevelsOnly => mod_entry.is_level,
+                        ModFilter::VehiclesOnly => mod_entry.is_vehicle,
+                    }
+                }).collect()
+            } else {
+                cache.mods.iter().enumerate().collect()
+            };
+            
+            if filtered_mods.is_empty() {
                 ui.label("No mods found");
             } else {
-                ui.label(format!("Total mods: {}", cache.mods.len()));
+                ui.label(format!("Showing: {} / Total: {}", filtered_mods.len(), cache.mods.len()));
                 ui.separator();
 
                 ScrollArea::vertical().show(ui, |ui| {
-                    for (idx, mod_entry) in cache.mods.iter().enumerate() {
+                    for (idx, mod_entry) in filtered_mods {
                         ui.group(|ui| {
                             ui.horizontal(|ui| {
                                 {
