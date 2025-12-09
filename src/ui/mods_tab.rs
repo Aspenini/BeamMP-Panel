@@ -7,6 +7,7 @@ pub enum ModsAction {
     None,
     SwitchToServer,
     SwitchToClient,
+    ViewDetails(usize), // Index of the mod to view details for
 }
 
 pub fn show(
@@ -122,11 +123,28 @@ pub fn show(
                                     };
                                     ui.label(icon);
                                     
+                                    // Show level indicator for client mods
+                                    if current_mod_type == ModType::Client && mod_entry.is_level {
+                                        ui.colored_label(egui::Color32::from_rgb(100, 200, 255), "Level");
+                                    }
+                                    
+                                    // Show vehicle indicator for client mods
+                                    if current_mod_type == ModType::Client && mod_entry.is_vehicle {
+                                        ui.colored_label(egui::Color32::from_rgb(255, 180, 100), "Vehicle");
+                                    }
+                                    
                                     ui.label(&mod_entry.relative_path);
 
                                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                                         if ui.button("Delete").clicked() {
                                             *delete_confirmation = Some(DeleteConfirmation::Mod(idx));
+                                        }
+                                        
+                                        // Show Info button only for client mods
+                                        if current_mod_type == ModType::Client {
+                                            if ui.button("Info").clicked() {
+                                                action = ModsAction::ViewDetails(idx);
+                                            }
                                         }
 
                                         let resource_folder = server.get_resource_folder();

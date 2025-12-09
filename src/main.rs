@@ -40,6 +40,12 @@ struct BeamMpManagerApp {
     kick_player_name: String,
     kick_reason: String,
     broadcast_message: String,
+    mod_details_view: Option<ModDetailsView>,
+}
+
+struct ModDetailsView {
+    mod_name: String,
+    details: Option<mods::ModDetailInfo>,
 }
 
 struct RunningProcess {
@@ -95,6 +101,7 @@ impl BeamMpManagerApp {
             kick_player_name: String::new(),
             kick_reason: String::new(),
             broadcast_message: String::new(),
+            mod_details_view: None,
         }
     }
 
@@ -311,6 +318,77 @@ impl eframe::App for BeamMpManagerApp {
             }
         }
 
+        // Handle mod details modal
+        if let Some(details_view) = &self.mod_details_view {
+            let mut should_close = false;
+
+            egui::Window::new("Mod Details")
+                .collapsible(false)
+                .resizable(true)
+                .default_width(500.0)
+                .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+                .show(ctx, |ui| {
+                    ui.heading(&details_view.mod_name);
+                    ui.separator();
+                    
+                    if let Some(details) = &details_view.details {
+                        ui.horizontal(|ui| {
+                            ui.label("Type:");
+                            if details.has_levels {
+                                ui.colored_label(egui::Color32::from_rgb(100, 200, 255), "Level");
+                            }
+                            if details.has_vehicles {
+                                ui.colored_label(egui::Color32::from_rgb(255, 180, 100), "Vehicle");
+                            }
+                            if !details.has_levels && !details.has_vehicles {
+                                ui.label("Other");
+                            }
+                        });
+                        
+                        ui.separator();
+                        
+                        ui.label(format!("Total Files: {}", details.total_files));
+                        ui.label(format!("Total Size: {:.2} MB", details.total_size as f64 / 1_048_576.0));
+                        
+                        ui.separator();
+                        
+                        if !details.level_names.is_empty() {
+                            ui.heading("Levels:");
+                            egui::ScrollArea::vertical()
+                                .max_height(150.0)
+                                .show(ui, |ui| {
+                                    for level_name in &details.level_names {
+                                        ui.label(format!("  • {}", level_name));
+                                    }
+                                });
+                            ui.add_space(10.0);
+                        }
+                        
+                        if !details.vehicle_names.is_empty() {
+                            ui.heading("Vehicles:");
+                            egui::ScrollArea::vertical()
+                                .max_height(150.0)
+                                .show(ui, |ui| {
+                                    for vehicle_name in &details.vehicle_names {
+                                        ui.label(format!("  • {}", vehicle_name));
+                                    }
+                                });
+                        }
+                    } else {
+                        ui.label("Loading details...");
+                    }
+                    
+                    ui.separator();
+                    if ui.button("Close").clicked() {
+                        should_close = true;
+                    }
+                });
+
+            if should_close {
+                self.mod_details_view = None;
+            }
+        }
+
         egui::TopBottomPanel::bottom("status_bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 if let Some(msg) = &self.status_message {
@@ -513,6 +591,24 @@ impl eframe::App for BeamMpManagerApp {
                         ui::mods_tab::ModsAction::SwitchToClient => {
                             self.current_mod_type = ModType::Client;
                             self.reload_mods(ModType::Client);
+                        }
+                        ui::mods_tab::ModsAction::ViewDetails(mod_idx) => {
+                            if let Some(cache) = &self.mods_cache {
+                                if let Some(mod_entry) = cache.mods.get(mod_idx) {
+                                    // Get mod details
+                                    match mods::get_mod_details(&mod_entry.full_path) {
+                                        Ok(details) => {
+                                            self.mod_details_view = Some(ModDetailsView {
+                                                mod_name: mod_entry.relative_path.clone(),
+                                                details: Some(details),
+                                            });
+                                        }
+                                        Err(e) => {
+                                            self.set_status(format!("Failed to read mod details: {}", e), true);
+                                        }
+                                    }
+                                }
+                            }
                         }
                         ui::mods_tab::ModsAction::None => {}
                     }
