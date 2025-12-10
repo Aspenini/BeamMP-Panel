@@ -2,6 +2,9 @@
 
 A desktop application for managing BeamMP dedicated servers, built with Rust and egui.
 
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/Aspenini/BeamMP-Panel?style=for-the-badge)](https://github.com/Aspenini/BeamMP-Panel/releases)
+[![GitHub all releases downloads](https://img.shields.io/github/downloads/Aspenini/BeamMP-Panel/total?style=for-the-badge)](https://github.com/Aspenini/BeamMP-Panel/releases)
+
 ## Features
 
 - **Server Management** - Register and manage multiple BeamMP server installations
