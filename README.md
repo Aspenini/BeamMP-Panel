@@ -92,15 +92,3 @@ Navigate to the Control tab while a server is running to access:
 - Quick access to common server commands (status, version, reload mods, etc.)
 
 All command outputs are displayed in the integrated console.
-
-## Configuration Storage
-
-The application stores server lists in platform-specific directories:
-
-- **Windows**: `%APPDATA%\BeamMP-Panel\servers.json`
-- **Linux**: `~/.config/BeamMP-Panel/servers.json`
-- **macOS**: `~/Library/Application Support/BeamMP-Panel/servers.json`
-
-## License
-
-MIT
