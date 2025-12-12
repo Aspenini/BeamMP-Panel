@@ -9,12 +9,22 @@ mod process;
 use eframe::egui;
 use server::ServerList;
 use process::ServerProcess;
+use std::sync::Arc;
 
 fn main() -> eframe::Result<()> {
+    // Load and set the window icon
+    let icon = load_icon();
+    
+    let mut viewport_builder = egui::ViewportBuilder::default()
+        .with_inner_size([1200.0, 700.0])
+        .with_title("BeamMP Panel");
+    
+    if let Some(icon_data) = icon {
+        viewport_builder = viewport_builder.with_icon(Arc::new(icon_data));
+    }
+    
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1200.0, 700.0])
-            .with_title("BeamMP Panel"),
+        viewport: viewport_builder,
         ..Default::default()
     };
 
@@ -23,6 +33,24 @@ fn main() -> eframe::Result<()> {
         options,
         Box::new(|_cc| Ok(Box::new(BeamMpManagerApp::new()))),
     )
+}
+
+fn load_icon() -> Option<egui::IconData> {
+    // Load the embedded icon file
+    let icon_bytes = include_bytes!("../icons/BeamMP-Panel.ico");
+    
+    // Try to load from embedded bytes
+    if let Ok(img) = image::load_from_memory(icon_bytes) {
+        let rgba = img.into_rgba8();
+        let (width, height) = rgba.dimensions();
+        Some(egui::IconData {
+            rgba: rgba.into_raw(),
+            width,
+            height,
+        })
+    } else {
+        None
+    }
 }
 
 struct BeamMpManagerApp {
