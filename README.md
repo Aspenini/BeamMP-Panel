@@ -1,4 +1,5 @@
-# THIS APP IS DEPRECATED, PLEASE USE [SUS PANEL](https://github.com/Aspenini/SUS-Panel) WHICH SUPPORTS MORE GAME SERVERS
+# This app will continue to work as-is, but it is no longer actively maintained. For future updates and additional game server support, please use [SUS Panel](https://github.com/Aspenini/SUS-Panel).
+
 # BeamMP Panel
 
 A desktop application for managing BeamMP dedicated servers, built with Rust and egui.
