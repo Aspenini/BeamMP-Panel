@@ -7,7 +7,7 @@
         Manufacturer='BeamMP Panel'
         Language='1033'
         Codepage='1252'
-        Version='0.1.0'>
+        Version='$(var.Version)'>
 
         <Package
             Id='*'
@@ -35,9 +35,9 @@
                     <Component Id='MainExecutable' Guid='A1A1A1A1-A1A1-A1A1-A1A1-A1A1A1A1A1A1'>
                         <File
                             Id='BeamMPPanelEXE'
-                            Name='beammp-panel.exe'
+                            Name='BeamMP-Panel.exe'
                             DiskId='1'
-                            Source='target\release\beammp-panel.exe'
+                            Source='$(var.CargoTargetBinDir)\BeamMP-Panel.exe'
                             KeyPath='yes'
                         />
                     </Component>
@@ -51,7 +51,7 @@
                             Id='ApplicationStartMenuShortcut'
                             Name='BeamMP Panel'
                             Description='BeamMP Server Manager'
-                            Target='[APPLICATIONFOLDER]beammp-panel.exe'
+                            Target='[APPLICATIONFOLDER]BeamMP-Panel.exe'
                             WorkingDirectory='APPLICATIONFOLDER'
                         />
                         <RemoveFolder Id='CleanUpShortCut' Directory='ApplicationProgramsFolder' On='uninstall' />
@@ -73,7 +73,7 @@
                         Id='ApplicationDesktopShortcut'
                         Name='BeamMP Panel'
                         Description='BeamMP Server Manager'
-                        Target='[APPLICATIONFOLDER]beammp-panel.exe'
+                        Target='[APPLICATIONFOLDER]BeamMP-Panel.exe'
                         WorkingDirectory='APPLICATIONFOLDER'
                     />
                     <RemoveFolder Id='CleanUpDesktopShortcut' On='uninstall' />
@@ -103,9 +103,9 @@
             <ComponentRef Id='DesktopShortcut' />
         </Feature>
 
-        <Icon Id='ProductIcon' SourceFile='target\release\beammp-panel.exe' />
+        <Icon Id='ProductIcon' SourceFile='$(var.CargoTargetBinDir)\BeamMP-Panel.exe' />
         <Property Id='ARPPRODUCTICON' Value='ProductIcon' />
-        <Property Id='ARPHELPLINK' Value='https://github.com/yourusername/beammp-panel' />
+        <Property Id='ARPHELPLINK' Value='https://github.com/Aspenini/BeamMP-Panel' />
         <UIRef Id='WixUI_InstallDir' />
         <Property Id='WIXUI_INSTALLDIR' Value='APPLICATIONFOLDER' />
     </Product>

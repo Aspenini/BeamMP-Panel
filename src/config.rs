@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ServerConfig {
     #[serde(rename = "General")]
     pub general: GeneralConfig,
@@ -8,7 +9,10 @@ pub struct ServerConfig {
     pub misc: MiscConfig,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+// `serde(default)` keeps parsing tolerant: ServerConfig.toml files written by
+// older/newer BeamMP server versions may be missing fields.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct GeneralConfig {
     #[serde(rename = "Port")]
     pub port: u16,
@@ -42,7 +46,8 @@ pub struct GeneralConfig {
     pub resource_folder: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct MiscConfig {
     #[serde(rename = "ImScaredOfUpdates")]
     pub im_scared_of_updates: bool,
@@ -81,12 +86,4 @@ impl Default for MiscConfig {
     }
 }
 
-impl Default for ServerConfig {
-    fn default() -> Self {
-        Self {
-            general: GeneralConfig::default(),
-            misc: MiscConfig::default(),
-        }
-    }
-}
 

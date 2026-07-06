@@ -59,10 +59,8 @@ impl ServerProcess {
         let tx_clone = tx.clone();
         thread::spawn(move || {
             let reader = BufReader::new(stdout);
-            for line in reader.lines() {
-                if let Ok(line) = line {
-                    let _ = tx_clone.send(line);
-                }
+            for line in reader.lines().map_while(Result::ok) {
+                let _ = tx_clone.send(line);
             }
         });
 
@@ -70,10 +68,8 @@ impl ServerProcess {
         let tx_clone = tx.clone();
         let output_thread = thread::spawn(move || {
             let reader = BufReader::new(stderr);
-            for line in reader.lines() {
-                if let Ok(line) = line {
-                    let _ = tx_clone.send(format!("[ERROR] {}", line));
-                }
+            for line in reader.lines().map_while(Result::ok) {
+                let _ = tx_clone.send(format!("[ERROR] {}", line));
             }
         });
 
@@ -92,17 +88,10 @@ impl ServerProcess {
         Ok(())
     }
 
-    pub fn stop(&mut self) -> Result<()> {
-        // Try graceful shutdown first
-        let _ = self.send_command("exit");
-        
-        // Wait a bit for graceful shutdown
-        std::thread::sleep(std::time::Duration::from_millis(500));
-        
-        // Force kill if still running
-        if self.is_running() {
-            self.child.kill()?;
-        }
+    /// Immediately kill the process. Graceful shutdown is requested by the
+    /// caller via `send_command("exit")`; this is the timeout fallback.
+    pub fn kill(&mut self) -> Result<()> {
+        self.child.kill()?;
         self.child.wait()?;
         Ok(())
     }
@@ -117,6 +106,24 @@ impl ServerProcess {
             lines.push(line);
         }
         lines
+    }
+}
+
+impl Drop for ServerProcess {
+    fn drop(&mut self) {
+        // Don't leave an orphaned (hidden) server process behind, e.g. when
+        // the panel window is closed while a server is still running.
+        if self.is_running() {
+            let _ = self.send_command("exit");
+            for _ in 0..10 {
+                if !self.is_running() {
+                    break;
+                }
+                thread::sleep(std::time::Duration::from_millis(100));
+            }
+            let _ = self.child.kill();
+        }
+        let _ = self.child.wait();
     }
 }
 

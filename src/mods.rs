@@ -287,78 +287,27 @@ pub fn get_mod_details(zip_path: &Path) -> Result<ModDetailInfo> {
     })
 }
 
-pub fn disable_server_mod(
+/// Enable or disable a mod by moving it between `<resource_folder>/<subdir>`
+/// and `<resource_folder>_disabled/<subdir>`. `subdir` is "Server" or "Client".
+pub fn set_mod_enabled(
     server_path: &Path,
     resource_folder: &str,
+    subdir: &str,
     relative_path: &str,
+    enabled: bool,
 ) -> Result<()> {
-    let source = server_path.join(resource_folder).join("Server").join(relative_path);
-    let target = server_path
+    let enabled_path = server_path.join(resource_folder).join(subdir).join(relative_path);
+    let disabled_path = server_path
         .join(format!("{}_disabled", resource_folder))
-        .join("Server")
+        .join(subdir)
         .join(relative_path);
 
-    // Create parent directories if needed
-    if let Some(parent) = target.parent() {
-        fs::create_dir_all(parent)?;
-    }
+    let (source, target) = if enabled {
+        (disabled_path, enabled_path)
+    } else {
+        (enabled_path, disabled_path)
+    };
 
-    fs::rename(source, target)?;
-    Ok(())
-}
-
-pub fn enable_server_mod(
-    server_path: &Path,
-    resource_folder: &str,
-    relative_path: &str,
-) -> Result<()> {
-    let source = server_path
-        .join(format!("{}_disabled", resource_folder))
-        .join("Server")
-        .join(relative_path);
-    let target = server_path.join(resource_folder).join("Server").join(relative_path);
-
-    // Create parent directories if needed
-    if let Some(parent) = target.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    fs::rename(source, target)?;
-    Ok(())
-}
-
-pub fn disable_client_mod(
-    server_path: &Path,
-    resource_folder: &str,
-    relative_path: &str,
-) -> Result<()> {
-    let source = server_path.join(resource_folder).join("Client").join(relative_path);
-    let target = server_path
-        .join(format!("{}_disabled", resource_folder))
-        .join("Client")
-        .join(relative_path);
-
-    // Create parent directories if needed
-    if let Some(parent) = target.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    fs::rename(source, target)?;
-    Ok(())
-}
-
-pub fn enable_client_mod(
-    server_path: &Path,
-    resource_folder: &str,
-    relative_path: &str,
-) -> Result<()> {
-    let source = server_path
-        .join(format!("{}_disabled", resource_folder))
-        .join("Client")
-        .join(relative_path);
-    let target = server_path.join(resource_folder).join("Client").join(relative_path);
-
-    // Create parent directories if needed
     if let Some(parent) = target.parent() {
         fs::create_dir_all(parent)?;
     }

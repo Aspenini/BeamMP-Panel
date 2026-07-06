@@ -65,7 +65,8 @@ struct BeamMpManagerApp {
     running_process: Option<RunningProcess>,
     terminal_output: Vec<String>,
     auto_scroll_terminal: bool,
-    player_list: Vec<String>,
+    player_list: Vec<PlayerEntry>,
+    player_list_request: Option<PlayerListRequest>,
     kick_player_name: String,
     kick_reason: String,
     broadcast_message: String,
@@ -80,6 +81,23 @@ struct ModDetailsView {
 struct RunningProcess {
     server_id: String,
     process: ServerProcess,
+    /// Set when a graceful stop was requested; force-kill after this deadline.
+    stop_deadline: Option<std::time::Instant>,
+}
+
+/// A connected player parsed from the server's `list` command output.
+#[derive(Clone)]
+pub struct PlayerEntry {
+    pub name: String,
+    pub id: String,
+    pub cars: String,
+}
+
+/// Tracks an in-flight `list` command whose output we are watching for.
+struct PlayerListRequest {
+    started: std::time::Instant,
+    /// True once the "Name  ID  Cars" table header has been seen.
+    capturing: bool,
 }
 
 #[derive(PartialEq)]
@@ -135,6 +153,7 @@ impl BeamMpManagerApp {
             terminal_output: Vec::with_capacity(1000), // Preallocate
             auto_scroll_terminal: true,
             player_list: Vec::with_capacity(32), // Preallocate for typical player counts
+            player_list_request: None,
             kick_player_name: String::new(),
             kick_reason: String::new(),
             broadcast_message: String::new(),
@@ -209,6 +228,7 @@ impl BeamMpManagerApp {
                 self.running_process = Some(RunningProcess {
                     server_id,
                     process,
+                    stop_deadline: None,
                 });
                 self.set_status("Server started".to_string(), false);
             }
@@ -219,40 +239,95 @@ impl BeamMpManagerApp {
     }
 
     fn stop_server(&mut self) {
-        if let Some(mut running) = self.running_process.take() {
-            match running.process.stop() {
-                Ok(_) => {
-                    self.terminal_output.push("Server stopped.".to_string());
-                    self.set_status("Server stopped".to_string(), false);
+        // Request a graceful shutdown without blocking the UI thread;
+        // update_terminal() force-kills if the deadline passes.
+        if let Some(running) = &mut self.running_process {
+            if running.stop_deadline.is_none() {
+                let _ = running.process.send_command("exit");
+                running.stop_deadline =
+                    Some(std::time::Instant::now() + std::time::Duration::from_secs(5));
+                self.terminal_output.push("Stopping server...".to_string());
+                self.set_status("Stopping server...".to_string(), false);
+            }
+        }
+    }
+
+    fn update_terminal(&mut self) {
+        // Drain process output and detect exit / stop timeout
+        if let Some(running) = &mut self.running_process {
+            if !running.process.is_running() {
+                self.terminal_output.push("Server process exited.".to_string());
+                self.running_process = None;
+                self.player_list.clear();
+                self.player_list_request = None;
+            } else {
+                if running
+                    .stop_deadline
+                    .is_some_and(|deadline| std::time::Instant::now() >= deadline)
+                {
+                    let _ = running.process.kill();
+                    self.terminal_output
+                        .push("Server did not exit in time; force-killed.".to_string());
+                    self.running_process = None;
+                    return;
                 }
-                Err(e) => {
-                    self.set_status(format!("Failed to stop server: {}", e), true);
+
+                let new_lines = running.process.read_output();
+                self.process_player_list_lines(&new_lines);
+                self.terminal_output.extend(new_lines);
+
+                // Limit terminal output to last 1000 lines
+                if self.terminal_output.len() > 1000 {
+                    self.terminal_output.drain(0..self.terminal_output.len() - 1000);
+                }
+            }
+        }
+
+        // The player table has no terminator line, so if the console goes
+        // quiet, finalize (or abandon) the request after a short window.
+        if let Some(request) = &self.player_list_request {
+            if request.started.elapsed() > std::time::Duration::from_secs(2) {
+                let was_capturing = request.capturing;
+                self.player_list_request = None;
+                if was_capturing {
+                    self.set_status(format!("{} player(s) online", self.player_list.len()), false);
                 }
             }
         }
     }
 
-    fn update_terminal(&mut self) -> bool {
-        // Check if process is still running and read output
-        // Returns true if terminal was updated (for conditional repainting)
-        if let Some(running) = &mut self.running_process {
-            if !running.process.is_running() {
-                self.terminal_output.push("Server process exited.".to_string());
-                self.running_process = None;
-                return true;
-            } else {
-                let new_lines = running.process.read_output();
-                let has_new_output = !new_lines.is_empty();
-                self.terminal_output.extend(new_lines);
-                
-                // Limit terminal output to last 1000 lines
-                if self.terminal_output.len() > 1000 {
-                    self.terminal_output.drain(0..self.terminal_output.len() - 1000);
+    /// Scan console output for the response to a pending `list` command.
+    ///
+    /// BeamMP-Server replies either with "No players online." or a
+    /// fixed-width table: a "Name  ID  Cars" header followed by one row per
+    /// player. Rows are parsed from the right (id and cars are numeric) so
+    /// player names containing spaces survive.
+    fn process_player_list_lines(&mut self, lines: &[String]) {
+        for line in lines {
+            let Some(request) = &self.player_list_request else {
+                return;
+            };
+            let trimmed = line.trim();
+
+            if !request.capturing {
+                if trimmed == "No players online." {
+                    self.player_list.clear();
+                    self.player_list_request = None;
+                    self.set_status("No players online".to_string(), false);
+                } else if trimmed.split_whitespace().eq(["Name", "ID", "Cars"]) {
+                    self.player_list.clear();
+                    if let Some(request) = &mut self.player_list_request {
+                        request.capturing = true;
+                    }
                 }
-                return has_new_output;
+            } else if let Some(entry) = parse_player_row(trimmed) {
+                self.player_list.push(entry);
+            } else {
+                // First non-row line marks the end of the table
+                self.player_list_request = None;
+                self.set_status(format!("{} player(s) online", self.player_list.len()), false);
             }
         }
-        false
     }
 
     fn send_server_command(&mut self, command: &str) {
@@ -272,22 +347,51 @@ impl BeamMpManagerApp {
     }
 
     fn refresh_player_list(&mut self) {
+        if self.running_process.is_none() {
+            self.set_status("No server is running".to_string(), true);
+            return;
+        }
         self.player_list.clear();
         self.send_server_command("list");
-        // Player list will be populated from terminal output parsing
-        // For now, just trigger the command
+        self.player_list_request = Some(PlayerListRequest {
+            started: std::time::Instant::now(),
+            capturing: false,
+        });
     }
 }
 
+/// Parse one row of the `list` table: `<name (may contain spaces)> <id> <cars>`.
+fn parse_player_row(line: &str) -> Option<PlayerEntry> {
+    let tokens: Vec<&str> = line.split_whitespace().collect();
+    if tokens.len() < 3 {
+        return None;
+    }
+    let (cars, id) = (tokens[tokens.len() - 1], tokens[tokens.len() - 2]);
+    if cars.parse::<u32>().is_err() || id.parse::<u32>().is_err() {
+        return None;
+    }
+    Some(PlayerEntry {
+        name: tokens[..tokens.len() - 2].join(" "),
+        id: id.to_string(),
+        cars: cars.to_string(),
+    })
+}
+
 impl eframe::App for BeamMpManagerApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Update terminal output and check if there were changes
-        let terminal_changed = self.update_terminal();
-        
-        // Only request repaint if terminal actually changed (optimization)
-        if terminal_changed {
-            ctx.request_repaint();
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.update_terminal();
+
+        // Keep polling for new console output while a server is running,
+        // otherwise egui only repaints on user input and output stalls.
+        if self.running_process.is_some() {
+            ctx.request_repaint_after(std::time::Duration::from_millis(100));
         }
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
+        let ctx = &ctx;
+
         // Handle delete confirmation modal
         if let Some(confirmation) = &self.delete_confirmation {
             let mut should_close = false;
@@ -426,7 +530,7 @@ impl eframe::App for BeamMpManagerApp {
             }
         }
 
-        egui::TopBottomPanel::bottom("status_bar").show(ctx, |ui| {
+        egui::Panel::bottom("status_bar").show(ui, |ui| {
             ui.horizontal(|ui| {
                 if let Some(msg) = &self.status_message {
                     let color = if msg.is_error {
@@ -439,9 +543,10 @@ impl eframe::App for BeamMpManagerApp {
             });
         });
 
-        egui::SidePanel::left("servers_panel")
-            .min_width(250.0)
-            .show(ctx, |ui| {
+        egui::Panel::left("servers_panel")
+            .resizable(true)
+            .min_size(250.0)
+            .show(ui, |ui| {
                 ui.heading("Servers");
                 ui.separator();
 
@@ -456,7 +561,7 @@ impl eframe::App for BeamMpManagerApp {
                         }
 
                         if response.hovered() {
-                            response.on_hover_text(&server.path.display().to_string());
+                            response.on_hover_text(server.path.display().to_string());
                         }
                     }
                 });
@@ -475,7 +580,7 @@ impl eframe::App for BeamMpManagerApp {
                 });
             });
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             if let Some(idx) = self.selected_server_index {
                 // Check if we need to reload mods before borrowing
                 let should_reload_mods = if self.current_tab == Tab::Mods {
@@ -496,14 +601,14 @@ impl eframe::App for BeamMpManagerApp {
 
                 // Get server info without holding mutable borrow
                 let server_info = self.server_list.servers.get(idx).map(|s| (s.id.clone(), s.path.clone()));
-                
+
                 if server_info.is_none() {
                     self.selected_server_index = None;
-                } else {
-                    let (server_id, server_path) = server_info.unwrap();
+                } else if let Some((server_id, server_path)) = server_info {
                     let is_running = self.running_process.as_ref()
-                        .map(|r| r.server_id == server_id)
-                        .unwrap_or(false);
+                        .is_some_and(|r| r.server_id == server_id);
+                    let is_stopping = self.running_process.as_ref()
+                        .is_some_and(|r| r.server_id == server_id && r.stop_deadline.is_some());
 
                     // Track actions to perform after UI
                     let mut should_start = false;
@@ -520,15 +625,15 @@ impl eframe::App for BeamMpManagerApp {
                         
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             // Start/Stop buttons
-                            if is_running {
+                            if is_stopping {
+                                ui.colored_label(egui::Color32::YELLOW, "● Stopping...");
+                            } else if is_running {
                                 ui.colored_label(egui::Color32::GREEN, "● Running");
                                 if ui.button("Stop Server").clicked() {
                                     should_stop = true;
                                 }
-                            } else {
-                                if ui.button("Start Server").clicked() {
-                                    should_start = true;
-                                }
+                            } else if ui.button("Start Server").clicked() {
+                                should_start = true;
                             }
                         });
                     });
@@ -537,11 +642,11 @@ impl eframe::App for BeamMpManagerApp {
                     // Main content area - split vertically if server is running
                     if is_running {
                         // Split view: tabs on top, terminal on bottom
-                        egui::TopBottomPanel::bottom("server_terminal")
+                        egui::Panel::bottom("server_terminal")
                             .resizable(true)
-                            .min_height(150.0)
-                            .default_height(250.0)
-                            .show_inside(ui, |ui| {
+                            .min_size(150.0)
+                            .default_size(250.0)
+                            .show(ui, |ui| {
                                 ui.horizontal(|ui| {
                                     ui.heading("Server Console");
                                     
@@ -579,7 +684,7 @@ impl eframe::App for BeamMpManagerApp {
 
                     // Tab content in remaining space
                     if let Some(server) = self.server_list.servers.get_mut(idx) {
-                        egui::CentralPanel::default().show_inside(ui, |ui| {
+                        egui::CentralPanel::default().show(ui, |ui| {
                             match self.current_tab {
                                 Tab::Config => {
                                     ui::config_tab::show(ui, server, &mut self.status_message);
@@ -599,7 +704,7 @@ impl eframe::App for BeamMpManagerApp {
                                     control_action = ui::control_tab::show(
                                         ui,
                                         is_running,
-                                        &mut self.player_list,
+                                        &self.player_list,
                                         &mut self.kick_player_name,
                                         &mut self.kick_reason,
                                         &mut self.broadcast_message,
@@ -676,3 +781,34 @@ impl eframe::App for BeamMpManagerApp {
     }
 }
 
+
+#[cfg(test)]
+mod tests {
+    use super::parse_player_row;
+
+    #[test]
+    fn parses_simple_row() {
+        // Real format: name padded to 25, id and cars padded to 6
+        let entry = parse_player_row("SomePlayer               0     1     ".trim()).unwrap();
+        assert_eq!(entry.name, "SomePlayer");
+        assert_eq!(entry.id, "0");
+        assert_eq!(entry.cars, "1");
+    }
+
+    #[test]
+    fn parses_name_with_spaces() {
+        let entry = parse_player_row("John Doe Racing          12    3").unwrap();
+        assert_eq!(entry.name, "John Doe Racing");
+        assert_eq!(entry.id, "12");
+        assert_eq!(entry.cars, "3");
+    }
+
+    #[test]
+    fn rejects_non_row_lines() {
+        assert!(parse_player_row("No players online.").is_none());
+        assert!(parse_player_row("[16:20:01] [INFO] something happened").is_none());
+        assert!(parse_player_row("").is_none());
+        // Header has no trailing numbers
+        assert!(parse_player_row("Name                     ID    Cars").is_none());
+    }
+}

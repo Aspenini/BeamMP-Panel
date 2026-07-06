@@ -16,7 +16,7 @@ A desktop application for managing BeamMP dedicated servers, built with Rust and
 
 ## Requirements
 
-- Rust 1.70 or later
+- Rust 1.92 or later
 - Existing BeamMP server installation(s)
 
 ## Installation
@@ -27,7 +27,7 @@ Build the application from source:
 cargo build --release
 ```
 
-The compiled binary will be located at `target/release/beammp-panel` (or `beammp-panel.exe` on Windows).
+The compiled binary will be located at `target/release/BeamMP-Panel` (or `BeamMP-Panel.exe` on Windows).
 
 ### Building MSI Installer (Windows)
 
@@ -44,7 +44,7 @@ cargo install cargo-wix
 cargo wix
 ```
 
-The MSI installer will be created at `target/wix/beammp-panel-0.1.0-x86_64.msi`.
+The MSI installer will be created at `target/wix/BeamMP-Panel-<version>-x86_64.msi`.
 
 ## Usage
 

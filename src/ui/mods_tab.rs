@@ -25,34 +25,30 @@ pub fn show(
     // Mod type selector
     ui.horizontal(|ui| {
         ui.label("View:");
-        if ui.selectable_label(current_mod_type == ModType::Client, "📦 Client").clicked() {
-            if current_mod_type != ModType::Client {
-                action = ModsAction::SwitchToClient;
-            }
+        if ui.selectable_label(current_mod_type == ModType::Client, "📦 Client").clicked()
+            && current_mod_type != ModType::Client
+        {
+            action = ModsAction::SwitchToClient;
         }
-        if ui.selectable_label(current_mod_type == ModType::Server, "📁 Server").clicked() {
-            if current_mod_type != ModType::Server {
-                action = ModsAction::SwitchToServer;
-            }
+        if ui.selectable_label(current_mod_type == ModType::Server, "📁 Server").clicked()
+            && current_mod_type != ModType::Server
+        {
+            action = ModsAction::SwitchToServer;
         }
-        
+
         // Show filter options only for Client mods
         if current_mod_type == ModType::Client {
             ui.separator();
             ui.label("Filter:");
-            if ui.selectable_label(current_mod_filter == ModFilter::All, "All").clicked() {
-                if current_mod_filter != ModFilter::All {
-                    action = ModsAction::ChangeFilter(ModFilter::All);
-                }
-            }
-            if ui.selectable_label(current_mod_filter == ModFilter::LevelsOnly, "Levels").clicked() {
-                if current_mod_filter != ModFilter::LevelsOnly {
-                    action = ModsAction::ChangeFilter(ModFilter::LevelsOnly);
-                }
-            }
-            if ui.selectable_label(current_mod_filter == ModFilter::VehiclesOnly, "Vehicles").clicked() {
-                if current_mod_filter != ModFilter::VehiclesOnly {
-                    action = ModsAction::ChangeFilter(ModFilter::VehiclesOnly);
+            for (filter, label) in [
+                (ModFilter::All, "All"),
+                (ModFilter::LevelsOnly, "Levels"),
+                (ModFilter::VehiclesOnly, "Vehicles"),
+            ] {
+                if ui.selectable_label(current_mod_filter == filter, label).clicked()
+                    && current_mod_filter != filter
+                {
+                    action = ModsAction::ChangeFilter(filter);
                 }
             }
         }
@@ -177,76 +173,44 @@ pub fn show(
                                         }
                                         
                                         // Show Info button only for client mods
-                                        if current_mod_type == ModType::Client {
-                                            if ui.button("Info").clicked() {
-                                                action = ModsAction::ViewDetails(idx);
-                                            }
+                                        if current_mod_type == ModType::Client
+                                            && ui.button("Info").clicked()
+                                        {
+                                            action = ModsAction::ViewDetails(idx);
                                         }
 
                                         let resource_folder = server.get_resource_folder();
-                                        
-                                        if mod_entry.enabled {
-                                            if ui.button("Disable").clicked() {
-                                                let result = if current_mod_type == ModType::Server {
-                                                    mods::disable_server_mod(
-                                                        &server.path,
-                                                        &resource_folder,
-                                                        &mod_entry.relative_path,
-                                                    )
-                                                } else {
-                                                    mods::disable_client_mod(
-                                                        &server.path,
-                                                        &resource_folder,
-                                                        &mod_entry.relative_path,
-                                                    )
-                                                };
-                                                
-                                                match result {
-                                                    Ok(_) => {
-                                                        *status = Some(StatusMessage {
-                                                            text: "Mod disabled".to_string(),
-                                                            is_error: false,
-                                                        });
-                                                        needs_reload = true;
-                                                    }
-                                                    Err(e) => {
-                                                        *status = Some(StatusMessage {
-                                                            text: format!("Failed to disable: {}", e),
-                                                            is_error: true,
-                                                        });
-                                                    }
-                                                }
-                                            }
+
+                                        let (label, enable, verb) = if mod_entry.enabled {
+                                            ("Disable", false, "disabled")
                                         } else {
-                                            if ui.button("Enable").clicked() {
-                                                let result = if current_mod_type == ModType::Server {
-                                                    mods::enable_server_mod(
-                                                        &server.path,
-                                                        &resource_folder,
-                                                        &mod_entry.relative_path,
-                                                    )
-                                                } else {
-                                                    mods::enable_client_mod(
-                                                        &server.path,
-                                                        &resource_folder,
-                                                        &mod_entry.relative_path,
-                                                    )
-                                                };
-                                                
-                                                match result {
-                                                    Ok(_) => {
-                                                        *status = Some(StatusMessage {
-                                                            text: "Mod enabled".to_string(),
-                                                            is_error: false,
-                                                        });
-                                                        needs_reload = true;
-                                                    }
-                                                    Err(e) => {
-                                                        *status = Some(StatusMessage {
-                                                            text: format!("Failed to enable: {}", e),
-                                                            is_error: true,
-                                                        });
-                                                    }
+                                            ("Enable", true, "enabled")
+                                        };
+
+                                        if ui.button(label).clicked() {
+                                            let subdir = match current_mod_type {
+                                                ModType::Server => "Server",
+                                                ModType::Client => "Client",
+                                            };
+                                            match mods::set_mod_enabled(
+                                                &server.path,
+                                                &resource_folder,
+                                                subdir,
+                                                &mod_entry.relative_path,
+                                                enable,
+                                            ) {
+                                                Ok(_) => {
+                                                    *status = Some(StatusMessage {
+                                                        text: format!("Mod {}", verb),
+                                                        is_error: false,
+                                                    });
+                                                    needs_reload = true;
+                                                }
+                                                Err(e) => {
+                                                    *status = Some(StatusMessage {
+                                                        text: format!("Failed to {}: {}", label.to_lowercase(), e),
+                                                        is_error: true,
+                                                    });
                                                 }
                                             }
                                         }

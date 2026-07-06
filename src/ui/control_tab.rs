@@ -1,3 +1,4 @@
+use crate::PlayerEntry;
 use egui::{ScrollArea, Ui};
 
 pub enum ControlAction {
@@ -9,7 +10,7 @@ pub enum ControlAction {
 pub fn show(
     ui: &mut Ui,
     is_server_running: bool,
-    player_list: &mut Vec<String>,
+    player_list: &[PlayerEntry],
     kick_player_name: &mut String,
     kick_reason: &mut String,
     broadcast_message: &mut String,
@@ -51,7 +52,17 @@ pub fn show(
                 ui.label("Connected Players:");
                 ui.indent("player_list", |ui| {
                     for player in player_list.iter() {
-                        ui.label(format!("• {}", player));
+                        ui.horizontal(|ui| {
+                            ui.label(format!(
+                                "• {}  (ID {}, {} car(s))",
+                                player.name, player.id, player.cars
+                            ));
+                            if ui.small_button("Kick...").clicked() {
+                                // Pre-fill the kick form below
+                                kick_player_name.clear();
+                                kick_player_name.push_str(&player.name);
+                            }
+                        });
                     }
                 });
             }
@@ -75,17 +86,15 @@ pub fn show(
             });
 
             ui.horizontal(|ui| {
-                if ui.button("⚠ Kick Player").clicked() {
-                    if !kick_player_name.is_empty() {
-                        let cmd = if kick_reason.is_empty() {
-                            format!("kick {}", kick_player_name)
-                        } else {
-                            format!("kick {} {}", kick_player_name, kick_reason)
-                        };
-                        action = ControlAction::SendCommand(cmd);
-                        kick_player_name.clear();
-                        kick_reason.clear();
-                    }
+                if ui.button("⚠ Kick Player").clicked() && !kick_player_name.is_empty() {
+                    let cmd = if kick_reason.is_empty() {
+                        format!("kick {}", kick_player_name)
+                    } else {
+                        format!("kick {} {}", kick_player_name, kick_reason)
+                    };
+                    action = ControlAction::SendCommand(cmd);
+                    kick_player_name.clear();
+                    kick_reason.clear();
                 }
 
                 if ui.button("Clear").clicked() {
@@ -105,11 +114,9 @@ pub fn show(
             ui.label("Message to all players:");
             ui.text_edit_singleline(broadcast_message);
 
-            if ui.button("📢 Send Message").clicked() {
-                if !broadcast_message.is_empty() {
-                    action = ControlAction::SendCommand(format!("say {}", broadcast_message));
-                    broadcast_message.clear();
-                }
+            if ui.button("📢 Send Message").clicked() && !broadcast_message.is_empty() {
+                action = ControlAction::SendCommand(format!("say {}", broadcast_message));
+                broadcast_message.clear();
             }
         });
 
@@ -164,7 +171,6 @@ pub fn show(
             
             ui.label("All commands are executed in the server console.");
             ui.label("Output will appear in the Server Console panel below.");
-            ui.label("Note: Player list parsing is basic - check console for full details.");
         });
     });
     

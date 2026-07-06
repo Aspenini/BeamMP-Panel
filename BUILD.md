@@ -3,7 +3,7 @@
 ## Prerequisites
 
 ### Required
-- Rust 1.70 or later (install from https://rustup.rs/)
+- Rust 1.92 or later (install from https://rustup.rs/)
 
 ### For MSI Installer (Windows only)
 - WiX Toolset v3.11 or later (download from https://wixtoolset.org/)
@@ -18,13 +18,13 @@
 ```bash
 cargo build
 ```
-Output: `target/debug/beammp-panel.exe`
+Output: `target/debug/BeamMP-Panel.exe`
 
 **Release build (optimized):**
 ```bash
 cargo build --release
 ```
-Output: `target/release/beammp-panel.exe`
+Output: `target/release/BeamMP-Panel.exe`
 
 ### Building MSI Installer
 
@@ -45,7 +45,7 @@ cargo install cargo-wix
 cargo wix
 ```
 
-Output: `target/wix/beammp-panel-0.1.0-x86_64.msi`
+Output: `target/wix/BeamMP-Panel-<version>-x86_64.msi`
 
 ### MSI Installer Features
 
@@ -97,7 +97,7 @@ After making changes, rebuild with `cargo wix`.
 
 **MSI build fails:**
 - Ensure release binary exists: `cargo build --release`
-- Check that `target/release/beammp-panel.exe` is present
+- Check that `target/release/BeamMP-Panel.exe` is present
 - Verify WiX configuration in `wix/main.wxs`
 
 ## Distribution
@@ -109,6 +109,6 @@ To distribute your application:
 
 Users can install by double-clicking the MSI file or via command line:
 ```bash
-msiexec /i beammp-panel-0.1.0-x86_64.msi
+msiexec /i BeamMP-Panel-<version>-x86_64.msi
 ```
 
