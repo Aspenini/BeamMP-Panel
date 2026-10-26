@@ -1,323 +1,270 @@
-use anyhow::Result;
+use anyhow::{Result, anyhow};
+use std::collections::{BTreeSet, HashMap};
 use std::fs;
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::time::SystemTime;
+
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+pub enum ModType {
+    Server,
+    Client,
+}
+
+impl ModType {
+    /// Subfolder of the resource folder holding this kind of mod.
+    pub fn subdir(self) -> &'static str {
+        match self {
+            ModType::Server => "Server",
+            ModType::Client => "Client",
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct ModEntry {
-    pub relative_path: String,
+    /// File name (client mods) or folder name (server mods)
+    pub name: String,
+    /// Lowercased `name`, for filtering without allocating every frame
+    pub name_lower: String,
     pub full_path: PathBuf,
     pub enabled: bool,
     pub is_level: bool,
     pub is_vehicle: bool,
+    /// Size on disk; `None` for folders
+    pub size: Option<u64>,
 }
 
 #[derive(Debug, Clone)]
 pub struct ModDetailInfo {
-    pub has_levels: bool,
-    pub has_vehicles: bool,
+    pub name: String,
     pub level_names: Vec<String>,
     pub vehicle_names: Vec<String>,
     pub total_files: usize,
-    pub total_size: u64,
+    pub archive_size: u64,
+    /// `None` when the archive doesn't record sizes up front
+    pub uncompressed_size: Option<u128>,
 }
 
-pub fn scan_server_mods(server_path: &Path, resource_folder: &str) -> Result<Vec<ModEntry>> {
-    // Preallocate capacity for better performance
-    let mut mods = Vec::with_capacity(128);
+/// Remembers which zips contain levels/vehicles, so rescans (after
+/// enable/disable, refresh, switching tabs) don't reopen unchanged archives.
+/// Keyed by name + size + mtime, which survive the enable/disable move.
+type ContentKey = (String, u64, Option<SystemTime>);
 
-    let enabled_root = server_path.join(resource_folder).join("Server");
-    let disabled_root = server_path.join(format!("{}_disabled", resource_folder)).join("Server");
+#[derive(Default)]
+pub struct ContentCache(Mutex<HashMap<ContentKey, (bool, bool)>>);
 
-    // Scan enabled server mods (folders only)
-    if enabled_root.exists() {
-        scan_server_folders(&enabled_root, true, &mut mods)?;
-    }
-
-    // Scan disabled server mods (folders only)
-    if disabled_root.exists() {
-        scan_server_folders(&disabled_root, false, &mut mods)?;
-    }
-
-    // Sort by path for consistent display
-    mods.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
-
-    Ok(mods)
+pub fn enabled_root(server_path: &Path, resource_folder: &str, mod_type: ModType) -> PathBuf {
+    server_path.join(resource_folder).join(mod_type.subdir())
 }
 
-pub fn scan_client_mods(server_path: &Path, resource_folder: &str) -> Result<Vec<ModEntry>> {
-    // Preallocate capacity for better performance
-    let mut mods = Vec::with_capacity(128);
-
-    let enabled_root = server_path.join(resource_folder).join("Client");
-    let disabled_root = server_path.join(format!("{}_disabled", resource_folder)).join("Client");
-
-    // Scan enabled client mods (ZIP files only)
-    if enabled_root.exists() {
-        scan_client_files(&enabled_root, true, &mut mods)?;
-    }
-
-    // Scan disabled client mods (ZIP files only)
-    if disabled_root.exists() {
-        scan_client_files(&disabled_root, false, &mut mods)?;
-    }
-
-    // Filter out mods.json as it's a server resource
-    mods.retain(|mod_entry| {
-        !mod_entry.relative_path.eq_ignore_ascii_case("mods.json")
-    });
-
-    // Sort by path for consistent display
-    mods.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
-
-    Ok(mods)
+pub fn disabled_root(server_path: &Path, resource_folder: &str, mod_type: ModType) -> PathBuf {
+    server_path
+        .join(format!("{resource_folder}_disabled"))
+        .join(mod_type.subdir())
 }
 
-fn scan_server_folders(
-    root: &Path,
-    enabled: bool,
-    mods: &mut Vec<ModEntry>,
-) -> Result<()> {
-    if !root.is_dir() {
-        return Ok(());
-    }
+/// List mods of one type, enabled and disabled. Meant to run off the UI thread.
+pub fn scan(
+    server_path: &Path,
+    resource_folder: &str,
+    mod_type: ModType,
+    cache: &ContentCache,
+) -> Result<Vec<ModEntry>> {
+    let mut mods = Vec::new();
+    for (root, enabled) in [
+        (enabled_root(server_path, resource_folder, mod_type), true),
+        (disabled_root(server_path, resource_folder, mod_type), false),
+    ] {
+        let entries = match fs::read_dir(&root) {
+            Ok(entries) => entries,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(e) => return Err(anyhow!("Failed to read {}: {e}", root.display())),
+        };
+        for entry in entries.flatten() {
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let path = entry.path();
 
-    // Server mods are folders in the Server directory
-    for entry in fs::read_dir(root)? {
-        let entry = entry?;
-        let path = entry.path();
-
-        if path.is_dir() {
-            let folder_name = path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("")
-                .to_string();
-
-            mods.push(ModEntry {
-                relative_path: folder_name,
-                full_path: path,
-                enabled,
-                is_level: false, // Server mods are folders, not levels
-                is_vehicle: false,
-            });
-        }
-    }
-
-    Ok(())
-}
-
-fn scan_client_files(
-    root: &Path,
-    enabled: bool,
-    mods: &mut Vec<ModEntry>,
-) -> Result<()> {
-    if !root.is_dir() {
-        return Ok(());
-    }
-
-    // Client mods are .zip files in the Client directory
-    for entry in fs::read_dir(root)? {
-        let entry = entry?;
-        let path = entry.path();
-
-        if path.is_file() {
-            // Only include .zip files
-            if let Some(ext) = path.extension() {
-                if ext.eq_ignore_ascii_case("zip") {
-                    let file_name = path
-                        .file_name()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or("")
-                        .to_string();
-
-                    // Check if this ZIP contains a "level" or "vehicles" folder
-                    let (is_level, is_vehicle) = check_zip_content_type(&path);
-
-                    mods.push(ModEntry {
-                        relative_path: file_name,
+            let mod_entry = match mod_type {
+                // Server mods are plugin folders
+                ModType::Server if file_type.is_dir() => ModEntry {
+                    name_lower: name.to_lowercase(),
+                    name,
+                    full_path: path,
+                    enabled,
+                    is_level: false,
+                    is_vehicle: false,
+                    size: None,
+                },
+                // Client mods are .zip files (mods.json is the server's own resource)
+                ModType::Client
+                    if file_type.is_file()
+                        && has_zip_extension(&path)
+                        && !name.eq_ignore_ascii_case("mods.json") =>
+                {
+                    let metadata = entry.metadata().ok();
+                    let size = metadata.as_ref().map_or(0, |m| m.len());
+                    let mtime = metadata.and_then(|m| m.modified().ok());
+                    let (is_level, is_vehicle) = cache.content_type(&name, size, mtime, &path);
+                    ModEntry {
+                        name_lower: name.to_lowercase(),
+                        name,
                         full_path: path,
                         enabled,
                         is_level,
                         is_vehicle,
-                    });
+                        size: Some(size),
+                    }
                 }
-            }
+                _ => continue,
+            };
+            mods.push(mod_entry);
         }
     }
 
-    Ok(())
+    mods.sort_by(|a, b| a.name_lower.cmp(&b.name_lower));
+    Ok(mods)
 }
 
-fn check_zip_content_type(zip_path: &Path) -> (bool, bool) {
-    // Try to open and read the ZIP file
-    let file = match fs::File::open(zip_path) {
-        Ok(f) => f,
-        Err(_) => return (false, false),
+fn has_zip_extension(path: &Path) -> bool {
+    path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("zip"))
+}
+
+impl ContentCache {
+    fn content_type(
+        &self,
+        name: &str,
+        size: u64,
+        mtime: Option<SystemTime>,
+        path: &Path,
+    ) -> (bool, bool) {
+        let key = (name.to_string(), size, mtime);
+        if let Some(hit) = self.0.lock().ok().and_then(|c| c.get(&key).copied()) {
+            return hit;
+        }
+        let result = zip_content_type(path);
+        if let Ok(mut cache) = self.0.lock() {
+            cache.insert(key, result);
+        }
+        result
+    }
+}
+
+fn open_archive(path: &Path) -> Result<zip::ZipArchive<BufReader<fs::File>>> {
+    Ok(zip::ZipArchive::new(BufReader::new(fs::File::open(path)?))?)
+}
+
+/// The asset folder (`levels`, `vehicles`) a zip entry lives under, plus the
+/// name of the item folder inside it: `levels/italy/info.json` -> (Level, "italy").
+fn classify_entry(name: &[u8]) -> Option<(bool, &[u8])> {
+    // Some zip tools write Windows separators
+    let mut parts = name.split(|&b| b == b'/' || b == b'\\');
+    let mut prev = parts.next()?;
+    for part in parts {
+        let is_level = prev.eq_ignore_ascii_case(b"levels") || prev.eq_ignore_ascii_case(b"level");
+        let is_vehicle =
+            prev.eq_ignore_ascii_case(b"vehicles") || prev.eq_ignore_ascii_case(b"vehicle");
+        if is_level || is_vehicle {
+            return Some((is_level, part));
+        }
+        prev = part;
+    }
+    None
+}
+
+/// Whether a zip contains levels and/or vehicles. Only reads the central
+/// directory (entry names), never file data.
+fn zip_content_type(path: &Path) -> (bool, bool) {
+    let Ok(archive) = open_archive(path) else {
+        return (false, false);
     };
-
-    let mut archive = match zip::ZipArchive::new(file) {
-        Ok(a) => a,
-        Err(_) => return (false, false),
-    };
-
-    let mut is_level = false;
-    let mut is_vehicle = false;
-
-    // Check if any file in the ZIP is inside a "level/levels" or "vehicles/vehicle" folder
-    for i in 0..archive.len() {
-        if let Ok(file) = archive.by_index(i) {
-            let name = file.name().to_lowercase();
-            
-            // Check if the path contains "level/" or "levels/" folder
-            if name.starts_with("level/") || name.starts_with("levels/") 
-                || name.contains("/level/") || name.contains("/levels/") {
-                is_level = true;
-            }
-            
-            // Check if the path contains "vehicle/" or "vehicles/" folder
-            if name.starts_with("vehicle/") || name.starts_with("vehicles/") 
-                || name.contains("/vehicle/") || name.contains("/vehicles/") {
-                is_vehicle = true;
-            }
-            
-            // Early exit if both found
-            if is_level && is_vehicle {
-                break;
-            }
+    let (mut is_level, mut is_vehicle) = (false, false);
+    for name in archive.file_names_raw() {
+        match classify_entry(name) {
+            Some((true, _)) => is_level = true,
+            Some((false, _)) => is_vehicle = true,
+            None => {}
+        }
+        if is_level && is_vehicle {
+            break;
         }
     }
-
     (is_level, is_vehicle)
 }
 
-pub fn get_mod_details(zip_path: &Path) -> Result<ModDetailInfo> {
-    let file = fs::File::open(zip_path)?;
-    let mut archive = zip::ZipArchive::new(file)?;
-    
-    let mut has_levels = false;
-    let mut has_vehicles = false;
-    let mut level_folders = std::collections::HashSet::new();
-    let mut vehicle_folders = std::collections::HashSet::new();
-    let mut total_size: u64 = 0;
-    
-    for i in 0..archive.len() {
-        let file = archive.by_index(i)?;
-        let name = file.name();
-        let name_lower = name.to_lowercase();
-        total_size += file.size();
-        
-        // Check for levels and extract level names
-        // Structure is typically: levels/LEVELNAME/... or level/LEVELNAME/...
-        if name_lower.starts_with("levels/") || name_lower.starts_with("level/") {
-            has_levels = true;
-            
-            // Split the path and get the level name (second part)
-            let parts: Vec<&str> = name.split('/').collect();
-            if parts.len() >= 2 {
-                let level_name = parts[1];
-                if !level_name.is_empty() {
-                    level_folders.insert(level_name.to_string());
-                }
-            }
-        } else if name_lower.contains("/levels/") || name_lower.contains("/level/") {
-            has_levels = true;
-            
-            // Find the levels folder in the path
-            let parts: Vec<&str> = name.split('/').collect();
-            for i in 0..parts.len() - 1 {
-                let part_lower = parts[i].to_lowercase();
-                if part_lower == "levels" || part_lower == "level" {
-                    if i + 1 < parts.len() {
-                        let level_name = parts[i + 1];
-                        if !level_name.is_empty() {
-                            level_folders.insert(level_name.to_string());
-                        }
-                    }
-                    break;
-                }
-            }
+pub fn mod_details(path: &Path) -> Result<ModDetailInfo> {
+    let archive = open_archive(path)?;
+    let mut levels = BTreeSet::new();
+    let mut vehicles = BTreeSet::new();
+    let mut total_files = 0;
+
+    for name in archive.file_names_raw() {
+        if !name.ends_with(b"/") {
+            total_files += 1;
         }
-        
-        // Check for vehicles and extract vehicle names
-        // Structure is typically: vehicles/VEHICLENAME/... or vehicle/VEHICLENAME/...
-        if name_lower.starts_with("vehicles/") || name_lower.starts_with("vehicle/") {
-            has_vehicles = true;
-            
-            // Split the path and get the vehicle name (second part)
-            let parts: Vec<&str> = name.split('/').collect();
-            if parts.len() >= 2 {
-                let vehicle_name = parts[1];
-                if !vehicle_name.is_empty() {
-                    vehicle_folders.insert(vehicle_name.to_string());
-                }
-            }
-        } else if name_lower.contains("/vehicles/") || name_lower.contains("/vehicle/") {
-            has_vehicles = true;
-            
-            // Find the vehicles folder in the path
-            let parts: Vec<&str> = name.split('/').collect();
-            for i in 0..parts.len() - 1 {
-                let part_lower = parts[i].to_lowercase();
-                if part_lower == "vehicles" || part_lower == "vehicle" {
-                    if i + 1 < parts.len() {
-                        let vehicle_name = parts[i + 1];
-                        if !vehicle_name.is_empty() {
-                            vehicle_folders.insert(vehicle_name.to_string());
-                        }
-                    }
-                    break;
-                }
+        if let Some((is_level, item)) = classify_entry(name)
+            && !item.is_empty()
+        {
+            let item = String::from_utf8_lossy(item).into_owned();
+            if is_level {
+                levels.insert(item);
+            } else {
+                vehicles.insert(item);
             }
         }
     }
-    
-    let mut level_names: Vec<String> = level_folders.into_iter().collect();
-    level_names.sort();
-    
-    let mut vehicle_names: Vec<String> = vehicle_folders.into_iter().collect();
-    vehicle_names.sort();
-    
+
     Ok(ModDetailInfo {
-        has_levels,
-        has_vehicles,
-        level_names,
-        vehicle_names,
-        total_files: archive.len(),
-        total_size,
+        name: path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+        level_names: levels.into_iter().collect(),
+        vehicle_names: vehicles.into_iter().collect(),
+        total_files,
+        archive_size: fs::metadata(path).map(|m| m.len()).unwrap_or(0),
+        uncompressed_size: archive.decompressed_size(),
     })
 }
 
 /// Enable or disable a mod by moving it between `<resource_folder>/<subdir>`
-/// and `<resource_folder>_disabled/<subdir>`. `subdir` is "Server" or "Client".
-pub fn set_mod_enabled(
+/// and `<resource_folder>_disabled/<subdir>`. Returns the mod's new path.
+pub fn set_enabled(
     server_path: &Path,
     resource_folder: &str,
-    subdir: &str,
-    relative_path: &str,
+    mod_type: ModType,
+    name: &str,
     enabled: bool,
-) -> Result<()> {
-    let enabled_path = server_path.join(resource_folder).join(subdir).join(relative_path);
-    let disabled_path = server_path
-        .join(format!("{}_disabled", resource_folder))
-        .join(subdir)
-        .join(relative_path);
-
+) -> Result<PathBuf> {
+    let enabled_path = enabled_root(server_path, resource_folder, mod_type).join(name);
+    let disabled_path = disabled_root(server_path, resource_folder, mod_type).join(name);
     let (source, target) = if enabled {
         (disabled_path, enabled_path)
     } else {
         (enabled_path, disabled_path)
     };
 
+    // fs::rename silently replaces files on Windows
+    if target.exists() {
+        return Err(anyhow!(
+            "{} already exists in {}",
+            name,
+            target.parent().unwrap_or(&target).display()
+        ));
+    }
     if let Some(parent) = target.parent() {
         fs::create_dir_all(parent)?;
     }
-
-    fs::rename(source, target)?;
-    Ok(())
+    fs::rename(&source, &target)?;
+    Ok(target)
 }
 
-pub fn delete_mod(path: &Path) -> Result<()> {
-    // Handle both files (client mods) and directories (server mods)
+pub fn delete(path: &Path) -> Result<()> {
+    // Files are client mods, directories are server mods
     if path.is_dir() {
         fs::remove_dir_all(path)?;
     } else {
@@ -326,29 +273,47 @@ pub fn delete_mod(path: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn add_client_mod(server_path: &Path, resource_folder: &str, source_path: &Path) -> Result<()> {
-    let file_name = source_path
+/// Copy a .zip into `<resource_folder>/Client`. Meant to run off the UI
+/// thread (map packs can be hundreds of MB).
+pub fn add_client_mod(server_path: &Path, resource_folder: &str, source: &Path) -> Result<()> {
+    if !has_zip_extension(source) {
+        return Err(anyhow!("only .zip files can be client mods"));
+    }
+    let file_name = source
         .file_name()
-        .ok_or_else(|| anyhow::anyhow!("Invalid file name"))?;
-    
-    // Validate that it's a ZIP file
-    if let Some(ext) = source_path.extension() {
-        if !ext.eq_ignore_ascii_case("zip") {
-            return Err(anyhow::anyhow!("Only ZIP files are allowed for client mods"));
-        }
-    } else {
-        return Err(anyhow::anyhow!("Only ZIP files are allowed for client mods"));
-    }
-    
-    let client_dir = server_path.join(resource_folder).join("Client");
+        .ok_or_else(|| anyhow!("invalid file name"))?;
+
+    let client_dir = enabled_root(server_path, resource_folder, ModType::Client);
     let target = client_dir.join(file_name);
-
-    // Create Resources/Client folder if it doesn't exist
-    if !client_dir.exists() {
-        fs::create_dir_all(&client_dir)?;
+    let disabled = disabled_root(server_path, resource_folder, ModType::Client).join(file_name);
+    if target.exists() || disabled.exists() {
+        return Err(anyhow!("a mod with this name already exists"));
     }
 
-    fs::copy(source_path, target)?;
+    fs::create_dir_all(&client_dir)?;
+    // Copy under a temporary name so the server never sees a half-written zip
+    let partial = client_dir.join(format!("{}.partial", file_name.to_string_lossy()));
+    fs::copy(source, &partial)
+        .and_then(|_| fs::rename(&partial, &target))
+        .inspect_err(|_| {
+            let _ = fs::remove_file(&partial);
+        })?;
     Ok(())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::classify_entry;
+
+    #[test]
+    fn classifies_zip_entries() {
+        assert_eq!(classify_entry(b"levels/italy/info.json"), Some((true, &b"italy"[..])));
+        assert_eq!(classify_entry(b"mod/Levels/foo/"), Some((true, &b"foo"[..])));
+        assert_eq!(classify_entry(b"vehicles/pickup/a.jbeam"), Some((false, &b"pickup"[..])));
+        assert_eq!(classify_entry(b"vehicles\\pickup\\a.jbeam"), Some((false, &b"pickup"[..])));
+        assert_eq!(classify_entry(b"levels/"), Some((true, &b""[..])));
+        assert_eq!(classify_entry(b"levels"), None);
+        assert_eq!(classify_entry(b"lua/ge/extensions/x.lua"), None);
+        assert_eq!(classify_entry(b"mylevels/x"), None);
+    }
+}

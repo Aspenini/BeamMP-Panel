@@ -74,6 +74,13 @@ cargo check
 cargo test
 ```
 
+Besides unit tests, this runs end-to-end tests that start, stop, crash and
+flood a stand-in server built from `examples/fake_server.rs`. To try the UI
+without a real server, build it with `cargo build --example fake_server`,
+copy `target/debug/examples/fake_server.exe` into a folder as
+`BeamMP-Server.exe` next to a `ServerConfig.toml`, and add that folder in the
+panel.
+
 ## Customizing the Installer
 
 Edit `wix/main.wxs` to customize:
