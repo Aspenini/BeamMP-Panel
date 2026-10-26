@@ -29,7 +29,7 @@ Build the application from source:
 cargo build --release
 ```
 
-The compiled binary will be located at `target/release/BeamMP-Panel` (or `BeamMP-Panel.exe` on Windows). See [BUILD.md](BUILD.md) for the MSI installer.
+The compiled binary will be located at `target/release/BeamMP-Panel` (or `BeamMP-Panel.exe` on Windows). See [BUILD.md](BUILD.md) for `just build`, which writes a portable exe and an MSI into `dist`.
 
 ## Usage
 

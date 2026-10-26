@@ -49,9 +49,3 @@ lto = "fat"
 codegen-units = 1
 strip = true
 panic = "abort"
-
-[package.metadata.wix]
-upgrade-guid = "9C5E5B5E-5E5E-4E5E-9E5E-5E5E5E5E5E5E"
-path-guid = "A1A1A1A1-A1A1-A1A1-A1A1-A1A1A1A1A1A1"
-license = false
-eula = false

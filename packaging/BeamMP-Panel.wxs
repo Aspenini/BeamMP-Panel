@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WiX Toolset 3 installer for BeamMP Panel.
+  `just build` compiles this with candle.exe and light.exe.
+  It passes -dVersion from Cargo.toml and -dCargoTargetBinDir=target\release.
+  Keep UpgradeCode stable so newer MSIs replace older ones.
+
+  Start menu and desktop shortcuts use an HKLM key path so a per-machine
+  install creates them for every user. light suppresses ICE38, ICE43, and
+  ICE57, which report that pattern as an error.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <?if $(sys.BUILDARCH) = x64 or $(sys.BUILDARCH) = arm64 ?>
+    <?define PlatformProgramFilesFolder = "ProgramFiles64Folder" ?>
+    <?define Win64 = "yes" ?>
+  <?else ?>
+    <?define PlatformProgramFilesFolder = "ProgramFilesFolder" ?>
+    <?define Win64 = "no" ?>
+  <?endif ?>
+
+  <Product
+      Id="*"
+      Name="BeamMP Panel"
+      Language="1033"
+      Version="$(var.Version)"
+      Manufacturer="Aspenini"
+      UpgradeCode="D9583701-D66B-4F14-A2C7-373C2395ECD9">
+
+    <Package
+        InstallerVersion="500"
+        Compressed="yes"
+        InstallScope="perMachine"
+        Description="A desktop application for managing BeamMP dedicated servers"
+        Comments="BeamMP Panel $(var.Version)" />
+
+    <MajorUpgrade
+        Schedule="afterInstallInitialize"
+        DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <?if $(sys.BUILDARCH) = x64 or $(sys.BUILDARCH) = arm64 ?>
+    <Condition Message="BeamMP Panel requires 64-bit Windows 10 or later.">
+      <![CDATA[Installed OR (VersionNT64 >= 603 AND WindowsBuild >= 10240)]]>
+    </Condition>
+    <?else ?>
+    <Condition Message="BeamMP Panel requires Windows 10 or later.">
+      <![CDATA[Installed OR (VersionNT >= 603 AND WindowsBuild >= 10240)]]>
+    </Condition>
+    <?endif ?>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="$(var.PlatformProgramFilesFolder)">
+        <Directory Id="APPLICATIONFOLDER" Name="BeamMP Panel">
+          <Component Id="MainExecutable" Guid="*" Win64="$(var.Win64)">
+            <File
+                Id="BeamMPPanelExe"
+                Name="BeamMP-Panel.exe"
+                Source="$(var.CargoTargetBinDir)\BeamMP-Panel.exe"
+                KeyPath="yes" />
+          </Component>
+          <Component Id="LicenseComponent" Guid="*" Win64="$(var.Win64)">
+            <File Id="LicenseFile" Name="LICENSE" Source="LICENSE" KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="BeamMP Panel">
+          <Component Id="StartMenuShortcutComponent" Guid="*" Win64="$(var.Win64)">
+            <Shortcut
+                Id="StartMenuShortcut"
+                Name="BeamMP Panel"
+                Description="Manage BeamMP dedicated servers"
+                Target="[APPLICATIONFOLDER]BeamMP-Panel.exe"
+                WorkingDirectory="APPLICATIONFOLDER" />
+            <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+            <RegistryValue
+                Root="HKLM"
+                Key="Software\Aspenini\BeamMP Panel"
+                Name="StartMenuShortcut"
+                Type="integer"
+                Value="1"
+                KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+
+      <Directory Id="DesktopFolder">
+        <Component Id="DesktopShortcutComponent" Guid="*" Win64="$(var.Win64)">
+          <Shortcut
+              Id="DesktopShortcut"
+              Name="BeamMP Panel"
+              Description="Manage BeamMP dedicated servers"
+              Target="[APPLICATIONFOLDER]BeamMP-Panel.exe"
+              WorkingDirectory="APPLICATIONFOLDER" />
+          <RegistryValue
+              Root="HKLM"
+              Key="Software\Aspenini\BeamMP Panel"
+              Name="DesktopShortcut"
+              Type="integer"
+              Value="1"
+              KeyPath="yes" />
+        </Component>
+      </Directory>
+    </Directory>
+
+    <Feature
+        Id="MainApplication"
+        Title="BeamMP Panel"
+        Level="1"
+        ConfigurableDirectory="APPLICATIONFOLDER"
+        AllowAdvertise="no"
+        Absent="disallow">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="LicenseComponent" />
+      <ComponentRef Id="StartMenuShortcutComponent" />
+      <Feature
+          Id="DesktopIcon"
+          Title="Desktop shortcut"
+          Description="Create a desktop shortcut."
+          Level="1"
+          Absent="allow">
+        <ComponentRef Id="DesktopShortcutComponent" />
+      </Feature>
+    </Feature>
+
+    <SetProperty Id="ARPINSTALLLOCATION" Value="[APPLICATIONFOLDER]" After="CostFinalize" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/Aspenini/BeamMP-Panel" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/Aspenini/BeamMP-Panel" />
+
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch BeamMP Panel" />
+    <CustomAction Id="LaunchApplication" FileKey="BeamMPPanelExe" ExeCommand="" Return="asyncNoWait" />
+
+    <UI>
+      <UIRef Id="WixUI_FeatureTree" />
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="CustomizeDlg" Order="99">1</Publish>
+      <Publish Dialog="CustomizeDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="99">1</Publish>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchApplication">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
+    </UI>
+  </Product>
+</Wix>

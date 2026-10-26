@@ -5,10 +5,10 @@
 ### Required
 - Rust 1.92 or later (install from https://rustup.rs/)
 
-### For MSI Installer (Windows only)
-- WiX Toolset v3.11 or later (download from https://wixtoolset.org/)
-  - Or install via winget: `winget install WiX.Toolset`
-- cargo-wix: `cargo install cargo-wix`
+### For the installer (Windows only)
+- WiX Toolset 3.11 or a newer 3.x release, which provides `candle.exe` and `light.exe` (https://wixtoolset.org/docs/wix3/)
+  - WiX 4 and later are a different toolchain and are not used here
+  - The script looks on `PATH`, in the `WIX` environment variable, and under `Program Files\WiX Toolset v3.14` and `v3.11` (including `Program Files (x86)`)
 
 ## Building the Application
 
@@ -26,34 +26,32 @@ cargo build --release
 ```
 Output: `target/release/BeamMP-Panel.exe`
 
-### Building MSI Installer
+### Release build and installer
 
-1. **Ensure WiX Toolset is installed and in PATH:**
+Running `just` with no arguments lists the recipes (`build`, `clean`, `run`).
+
+`just build` builds the release binary, then writes a portable exe and an MSI into `dist` at the repo root. The version comes from `Cargo.toml`. The platform name comes from the rustc host triple, so an x64 Windows build looks like this:
+
 ```bash
-# Test WiX installation
-candle.exe -?
+just build
 ```
 
-2. **Install cargo-wix (one-time setup):**
-```bash
-cargo install cargo-wix
-```
+Outputs in `dist/`:
+- `BeamMP-Panel-0.3.0-windows-x86_64-portable.exe` — portable exe
+- `BeamMP-Panel-0.3.0-windows-x86_64.msi` — installer
 
-3. **Build the MSI installer:**
-```bash
-# This will build the release binary and create the MSI
-cargo wix
-```
+`just run` runs the release build (`cargo run --release`).
 
-Output: `target/wix/BeamMP-Panel-<version>-x86_64.msi`
+`just clean` removes Cargo build output (`cargo clean`) and deletes `dist`.
 
-### MSI Installer Features
+The WiX source is `packaging/BeamMP-Panel.wxs`. `just build` passes the Cargo version in as `Version`. To compile the installer by hand after `cargo build --release`, run `candle.exe` and `light.exe` on that file (see the `build` recipe in the justfile). The 32-bit edition of WiX Toolset 3 installs under `C:\Program Files (x86)\WiX Toolset v3.14` instead.
+
+### Installer features
 
 The installer includes:
 - Main application executable
 - Start Menu shortcut
-- Desktop shortcut
-- Automatic PATH updates (optional)
+- Optional desktop shortcut
 - Clean uninstall support
 
 ### Build Options
@@ -83,39 +81,30 @@ panel.
 
 ## Customizing the Installer
 
-Edit `wix/main.wxs` to customize:
-- Product name and version
+Edit `packaging/BeamMP-Panel.wxs` to customize:
+- Product name and publisher
 - Installation directory
 - Shortcuts
-- Registry keys
 - Additional files
 
-After making changes, rebuild with `cargo wix`.
+Keep `UpgradeCode` stable across releases. The product version is supplied by `just build` from `Cargo.toml`. After making changes, run `just build` again.
 
 ## Troubleshooting
 
-**Error: "candle.exe not found"**
-- Ensure WiX Toolset is installed
-- Add WiX bin directory to PATH: `C:\Program Files (x86)\WiX Toolset v3.11\bin`
+**Error: "WiX Toolset 3 (candle.exe) not found"**
+- Install WiX Toolset 3.11 or a newer 3.x release
+- `candle.exe` is found on `PATH`, via the `WIX` environment variable, or in the default install folders
 
-**Error: "cargo-wix not found"**
-- Install with: `cargo install cargo-wix`
-- Ensure `~/.cargo/bin` is in PATH
-
-**MSI build fails:**
-- Ensure release binary exists: `cargo build --release`
+**Installer build fails because the exe is missing**
+- Build the release binary first: `cargo build --release`
 - Check that `target/release/BeamMP-Panel.exe` is present
-- Verify WiX configuration in `wix/main.wxs`
 
 ## Distribution
 
-To distribute your application:
-1. Build the MSI installer: `cargo wix`
+To distribute the application:
+1. Run `just build`
 2. Test the installer on a clean Windows machine
-3. Distribute the MSI file from `target/wix/`
+3. Distribute `dist/BeamMP-Panel-<version>-windows-<arch>.msi`, or `dist/BeamMP-Panel-<version>-windows-<arch>-portable.exe` for a portable copy
 
-Users can install by double-clicking the MSI file or via command line:
-```bash
-msiexec /i BeamMP-Panel-<version>-x86_64.msi
-```
+Users install by running that MSI.
 

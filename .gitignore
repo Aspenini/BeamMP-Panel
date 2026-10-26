@@ -3,9 +3,8 @@
 **/*.rs.bk
 *.pdb
 
-# WiX
-/wix/*.wixobj
-/wix/*.wixpdb
+# `just build` output
+/dist/
 
 # IDE
 .vscode/
