@@ -10,12 +10,7 @@ Point it at a BeamMP server folder you already have. Server setup itself is cove
 
 ## Install
 
-**Windows 10 or later.** Download the latest build from [releases](https://github.com/Aspenini/BeamMP-Panel/releases).
-
-| File | What it does |
-| --- | --- |
-| `BeamMP-Panel-<version>-windows-x86_64.msi` | Installs for every user, adds a Start menu shortcut, and replaces an older version. |
-| `BeamMP-Panel-<version>-windows-x86_64-portable.exe` | One file. Nothing is copied into Program Files. |
+**Windows 10 or later.** Download `BeamMP-Panel.exe` from [releases](https://github.com/Aspenini/BeamMP-Panel/releases), or build it with the steps below. Run that exe. Nothing is copied into Program Files.
 
 The tray icon works on Windows and macOS. On Linux, closing the window quits the panel.
 
@@ -94,7 +89,7 @@ The server list (`servers.json`) and settings (`settings.json`) are stored here:
 
 Window size and position are remembered separately: `%APPDATA%\beammp-panel\data` on Windows, `~/Library/Application Support/beammp-panel` on macOS, and `~/.local/share/beammp-panel` on Linux.
 
-Set `BEAMMP_PANEL_CONFIG_DIR` to keep the server list, settings, and window state (`window.ron`) in one folder. Point it at a directory next to the portable exe when you want that copy to carry its own servers.
+Set `BEAMMP_PANEL_CONFIG_DIR` to keep the server list, settings, and window state (`window.ron`) in one folder. Point it at a directory next to the exe when you want that copy to carry its own servers.
 
 ## Build
 
@@ -106,7 +101,7 @@ cargo build --release
 
 The binary is `target/release/BeamMP-Panel` (`BeamMP-Panel.exe` on Windows).
 
-On Windows, [`just`](https://github.com/casey/just) can package it too. `just build` writes the portable exe and the MSI into `dist`. The MSI step needs [WiX Toolset](https://wixtoolset.org/) 3.11 or a newer 3.x. `just run` starts the release build. `just clean` removes `target` and `dist`.
+On Windows, [`just`](https://github.com/casey/just) can copy the release binary into `dist`. `just build` writes `dist/BeamMP-Panel.exe`. `just run` starts the release build. `just clean` removes `target` and `dist`.
 
 The window redraws when something changes, and the panel stays idle while it is hidden in the tray. It renders with OpenGL, and uses DirectX or Vulkan when OpenGL is unavailable, such as a Remote Desktop session on a machine without a GPU.
 
