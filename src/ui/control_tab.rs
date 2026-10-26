@@ -11,7 +11,11 @@ enum Action {
 const QUICK_COMMANDS: &[(&str, &str, &str)] = &[
     ("Status", "status", "Uptime, players, mods and memory usage"),
     ("Version", "version", "Server version"),
-    ("Reload plugins", "reloadmods", "Reload server (Lua) plugins"),
+    (
+        "Reload plugins",
+        "reloadmods",
+        "Reload server (Lua) plugins",
+    ),
     ("Help", "help", "List all console commands"),
 ];
 
@@ -22,11 +26,13 @@ pub fn show(app: &mut App, ui: &mut Ui, id: &str) {
     let Some(session) = app.sessions.get(id).filter(|s| s.is_running()) else {
         ui.vertical_centered(|ui| {
             ui.add_space(60.0);
-            ui.label(RichText::new("Server is not running").color(p.text_strong).size(16.0));
-            ui.add_space(2.0);
             ui.label(
-                RichText::new("Start it to manage players and send commands.").color(p.muted),
+                RichText::new("Server is not running")
+                    .color(p.text_strong)
+                    .size(16.0),
             );
+            ui.add_space(2.0);
+            ui.label(RichText::new("Start it to manage players and send commands.").color(p.muted));
         });
         return;
     };
@@ -41,11 +47,12 @@ pub fn show(app: &mut App, ui: &mut Ui, id: &str) {
 
         theme::card(ui, "Players", |ui| {
             ui.horizontal(|ui| {
-                ui.label(
-                    RichText::new(format!("{} online", players.len())).color(p.text_strong),
-                );
+                ui.label(RichText::new(format!("{} online", players.len())).color(p.text_strong));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.add_enabled(!pending, egui::Button::new("Refresh")).clicked() {
+                    if ui
+                        .add_enabled(!pending, egui::Button::new("Refresh"))
+                        .clicked()
+                    {
                         action = Some(Action::RefreshPlayers);
                     }
                     if pending {
@@ -87,36 +94,43 @@ pub fn show(app: &mut App, ui: &mut Ui, id: &str) {
         ui.add_space(12.0);
 
         theme::card(ui, "Kick player", |ui| {
-            Grid::new("kick_form").num_columns(2).spacing([24.0, 10.0]).show(ui, |ui| {
-                ui.label(RichText::new("Player").color(p.muted));
-                ui.add(TextEdit::singleline(kick_name).desired_width(280.0));
-                ui.end_row();
-                ui.label(RichText::new("Reason").color(p.muted));
-                ui.add(TextEdit::singleline(kick_reason).hint_text("Optional").desired_width(280.0));
-                ui.end_row();
-                ui.label("");
-                ui.horizontal(|ui| {
-                    let name = kick_name.trim();
-                    if ui
-                        .add_enabled(!name.is_empty(), theme::danger_button(ui, "Kick"))
-                        .clicked()
-                    {
-                        let reason = kick_reason.trim();
-                        action = Some(Action::Command(if reason.is_empty() {
-                            format!("kick {name}")
-                        } else {
-                            format!("kick {name} {reason}")
-                        }));
-                        kick_name.clear();
-                        kick_reason.clear();
-                    }
-                    if ui.add(theme::link_button(ui, "Clear")).clicked() {
-                        kick_name.clear();
-                        kick_reason.clear();
-                    }
+            Grid::new("kick_form")
+                .num_columns(2)
+                .spacing([24.0, 10.0])
+                .show(ui, |ui| {
+                    ui.label(RichText::new("Player").color(p.muted));
+                    ui.add(TextEdit::singleline(kick_name).desired_width(280.0));
+                    ui.end_row();
+                    ui.label(RichText::new("Reason").color(p.muted));
+                    ui.add(
+                        TextEdit::singleline(kick_reason)
+                            .hint_text("Optional")
+                            .desired_width(280.0),
+                    );
+                    ui.end_row();
+                    ui.label("");
+                    ui.horizontal(|ui| {
+                        let name = kick_name.trim();
+                        if ui
+                            .add_enabled(!name.is_empty(), theme::danger_button(ui, "Kick"))
+                            .clicked()
+                        {
+                            let reason = kick_reason.trim();
+                            action = Some(Action::Command(if reason.is_empty() {
+                                format!("kick {name}")
+                            } else {
+                                format!("kick {name} {reason}")
+                            }));
+                            kick_name.clear();
+                            kick_reason.clear();
+                        }
+                        if ui.add(theme::link_button(ui, "Clear")).clicked() {
+                            kick_name.clear();
+                            kick_reason.clear();
+                        }
+                    });
+                    ui.end_row();
                 });
-                ui.end_row();
-            });
         });
         ui.add_space(12.0);
 

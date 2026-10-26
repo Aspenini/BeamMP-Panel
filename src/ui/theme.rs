@@ -3,8 +3,8 @@
 //! plain painting; nothing animates or requests repaints on its own.
 
 use egui::{
-    Color32, CornerRadius, FontData, FontFamily, FontId, Margin, Response, RichText, Sense,
-    Shadow, Stroke, TextStyle, Ui, Vec2, vec2,
+    Color32, CornerRadius, FontData, FontFamily, FontId, Margin, Response, RichText, Sense, Shadow,
+    Stroke, TextStyle, Ui, Vec2, vec2,
 };
 use std::sync::Arc;
 
@@ -79,7 +79,11 @@ pub const LIGHT: Palette = Palette {
 };
 
 pub fn palette(ui: &Ui) -> &'static Palette {
-    if ui.visuals().dark_mode { &DARK } else { &LIGHT }
+    if ui.visuals().dark_mode {
+        &DARK
+    } else {
+        &LIGHT
+    }
 }
 
 /// Font family used for headings and titles.
@@ -128,7 +132,10 @@ fn install_fonts(ctx: &egui::Context) {
         }
         if load(
             "mono",
-            &[r"C:\Windows\Fonts\CascadiaMono.ttf", r"C:\Windows\Fonts\consola.ttf"],
+            &[
+                r"C:\Windows\Fonts\CascadiaMono.ttf",
+                r"C:\Windows\Fonts\consola.ttf",
+            ],
         ) {
             fonts
                 .families
@@ -328,12 +335,21 @@ pub fn tabs<T: PartialEq + Copy>(ui: &mut Ui, current: &mut T, items: &[(T, &str
             for (value, label) in items {
                 let selected = *current == *value;
                 let color = if selected { p.text_strong } else { p.muted };
-                let galley = ui.painter().layout_no_wrap(label.to_string(), font.clone(), color);
+                let galley = ui
+                    .painter()
+                    .layout_no_wrap(label.to_string(), font.clone(), color);
                 let size = galley.size() + vec2(24.0, 18.0);
                 let (rect, response) = ui.allocate_exact_size(size, Sense::click());
-                let color = if response.hovered() && !selected { p.text } else { color };
-                ui.painter()
-                    .galley_with_override_text_color(rect.center() - galley.size() / 2.0 - vec2(0.0, 1.0), galley, color);
+                let color = if response.hovered() && !selected {
+                    p.text
+                } else {
+                    color
+                };
+                ui.painter().galley_with_override_text_color(
+                    rect.center() - galley.size() / 2.0 - vec2(0.0, 1.0),
+                    galley,
+                    color,
+                );
                 if selected {
                     let underline = egui::Rect::from_min_max(
                         egui::pos2(rect.left() + 8.0, rect.bottom() - 2.0),
@@ -351,7 +367,8 @@ pub fn tabs<T: PartialEq + Copy>(ui: &mut Ui, current: &mut T, items: &[(T, &str
         })
         .inner;
     let rect = ui.max_rect();
-    ui.painter().hline(rect.x_range(), line_y, Stroke::new(1.0, p.border));
+    ui.painter()
+        .hline(rect.x_range(), line_y, Stroke::new(1.0, p.border));
     changed
 }
 
@@ -376,7 +393,11 @@ pub fn segmented<T: PartialEq + Copy>(ui: &mut Ui, current: &mut T, items: &[(T,
                         RichText::new(*label).color(p.muted)
                     };
                     let button = egui::Button::new(text)
-                        .fill(if selected { p.control_hover } else { Color32::TRANSPARENT })
+                        .fill(if selected {
+                            p.control_hover
+                        } else {
+                            Color32::TRANSPARENT
+                        })
                         .stroke(Stroke::NONE)
                         .corner_radius(6)
                         .min_size(vec2(0.0, 24.0));

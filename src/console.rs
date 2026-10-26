@@ -173,10 +173,22 @@ mod tests {
 
     #[test]
     fn classifies_levels() {
-        assert_eq!(LineKind::classify("[25/10/26 21:29:01] [ERROR] boom"), LineKind::Error);
-        assert_eq!(LineKind::classify("[25/10/26 21:29:01] [WARN] hm"), LineKind::Warn);
-        assert_eq!(LineKind::classify("[25/10/26 21:29:01] [CHAT] (1) bob: hi"), LineKind::Chat);
-        assert_eq!(LineKind::classify("[25/10/26 21:29:01] [INFO] ok"), LineKind::Normal);
+        assert_eq!(
+            LineKind::classify("[25/10/26 21:29:01] [ERROR] boom"),
+            LineKind::Error
+        );
+        assert_eq!(
+            LineKind::classify("[25/10/26 21:29:01] [WARN] hm"),
+            LineKind::Warn
+        );
+        assert_eq!(
+            LineKind::classify("[25/10/26 21:29:01] [CHAT] (1) bob: hi"),
+            LineKind::Chat
+        );
+        assert_eq!(
+            LineKind::classify("[25/10/26 21:29:01] [INFO] ok"),
+            LineKind::Normal
+        );
         // Tags far into the message body are not level tags
         let long = format!("[25/10/26 21:29:01] [INFO] {} [ERROR]", "x".repeat(40));
         assert_eq!(LineKind::classify(&long), LineKind::Normal);

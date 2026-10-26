@@ -4,27 +4,22 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 default:
     @just --list
 
-# Build the release binary and copy BeamMP-Panel.exe into dist.
-[script("powershell.exe", "-NoLogo", "-NoProfile", "-File")]
+# Build the Windows x64 portable app into dist/portable.
 build:
-    $ErrorActionPreference = "Stop"
-    cargo build --release
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/tasks.ps1 build
 
-    $built = "target\release\BeamMP-Panel.exe"
-    if (-not (Test-Path -LiteralPath $built)) { Write-Error "Missing $built"; exit 1 }
+# Build the app and an Inno Setup 7 installer into dist/installer.
+installer:
+    powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/tasks.ps1 installer
 
-    if (Test-Path -LiteralPath dist) { Remove-Item -LiteralPath dist -Recurse -Force }
-    New-Item -ItemType Directory -Force -Path dist | Out-Null
-    Copy-Item -Force -LiteralPath $built -Destination "dist\BeamMP-Panel.exe"
+# Check formatting and lints, then build the test fixture and run all tests.
+check:
+    powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/tasks.ps1 check
 
-    Write-Output "exe: dist\BeamMP-Panel.exe"
-
-# Remove build artifacts and the dist folder.
+# Remove Cargo artifacts and generated distribution files.
 clean:
-    cargo clean
-    if (Test-Path -LiteralPath dist) { Remove-Item -LiteralPath dist -Recurse -Force }
+    powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/tasks.ps1 clean
 
-# Run the release build.
+# Run the app on the current platform.
 run:
-    cargo run --release
+    cargo run --locked --release

@@ -68,7 +68,10 @@ impl Settings {
     }
 
     pub fn save(&self) -> Result<()> {
-        util::atomic_write(&Self::path()?, serde_json::to_string_pretty(self)?.as_bytes())
+        util::atomic_write(
+            &Self::path()?,
+            serde_json::to_string_pretty(self)?.as_bytes(),
+        )
     }
 
     fn sanitized(mut self) -> Self {

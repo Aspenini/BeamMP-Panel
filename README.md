@@ -10,7 +10,9 @@ Point it at a BeamMP server folder you already have. Server setup itself is cove
 
 ## Install
 
-**Windows 10 or later.** Download `BeamMP-Panel.exe` from [releases](https://github.com/Aspenini/BeamMP-Panel/releases), or build it with the steps below. Run that exe. Nothing is copied into Program Files.
+**Windows 10 or later (x64).** Download the `BeamMP-Panel-<version>-windows-x64-setup.exe` installer from [releases](https://github.com/Aspenini/BeamMP-Panel/releases), or build it with the steps below. It installs for your Windows account without administrator access, adds a Start menu shortcut, and offers an optional desktop shortcut. Uninstall it through Windows Settings; your server folders and panel settings are preserved.
+
+For a portable copy, use `BeamMP-Panel.exe` instead. It runs without installation. See [Data](#data) to keep its settings alongside the executable.
 
 The tray icon works on Windows and macOS. On Linux, closing the window quits the panel.
 
@@ -101,7 +103,7 @@ cargo build --release
 
 The binary is `target/release/BeamMP-Panel` (`BeamMP-Panel.exe` on Windows).
 
-On Windows, [`just`](https://github.com/casey/just) can copy the release binary into `dist`. `just build` writes `dist/BeamMP-Panel.exe`. `just run` starts the release build. `just clean` removes `target` and `dist`.
+On Windows, `just build` creates `dist/portable/BeamMP-Panel.exe`, and `just installer` builds the app and an installer using **Inno Setup 7**. `just check` runs formatting, lints, and tests. See [Building and packaging](docs/building.md) for prerequisites, commands without `just`, output locations, and the repository layout.
 
 The window redraws when something changes, and the panel stays idle while it is hidden in the tray. It renders with OpenGL, and uses DirectX or Vulkan when OpenGL is unavailable, such as a Remote Desktop session on a machine without a GPU.
 

@@ -6,6 +6,7 @@ rust-version = "1.92"
 description = "A desktop application for managing BeamMP dedicated servers"
 license = "MIT"
 authors = ["Aspenini"]
+repository = "https://github.com/Aspenini/BeamMP-Panel"
 
 [dependencies]
 # `persistence` remembers window size/position and panel layout between runs.

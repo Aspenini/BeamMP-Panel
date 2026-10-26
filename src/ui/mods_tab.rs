@@ -32,7 +32,10 @@ pub fn show(app: &mut App, ui: &mut Ui, id: &str) {
         if theme::segmented(
             ui,
             &mut mod_type,
-            &[(ModType::Client, "Client mods"), (ModType::Server, "Server plugins")],
+            &[
+                (ModType::Client, "Client mods"),
+                (ModType::Server, "Server plugins"),
+            ],
         ) {
             action = Some(Action::SetType(mod_type));
         }
@@ -62,7 +65,9 @@ pub fn show(app: &mut App, ui: &mut Ui, id: &str) {
             if mod_type == ModType::Client
                 && ui
                     .add(theme::primary_button(ui, "Add mods"))
-                    .on_hover_text("Copy .zip files into the Client folder, or drop them on the window")
+                    .on_hover_text(
+                        "Copy .zip files into the Client folder, or drop them on the window",
+                    )
                     .clicked()
                 && let Some(files) = rfd::FileDialog::new()
                     .add_filter("BeamNG mods", &["zip"])
@@ -145,11 +150,9 @@ pub fn show(app: &mut App, ui: &mut Ui, id: &str) {
             .corner_radius(10)
             .inner_margin(Margin::symmetric(6, 4))
             .show(ui, |ui| {
-                egui::ScrollArea::vertical().auto_shrink([false, true]).show_rows(
-                    ui,
-                    ROW_HEIGHT,
-                    visible.len(),
-                    |ui, rows| {
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, true])
+                    .show_rows(ui, ROW_HEIGHT, visible.len(), |ui, rows| {
                         ui.spacing_mut().item_spacing.y = 0.0;
                         for (n, &index) in visible[rows.clone()].iter().enumerate() {
                             let m = &view.mods[index];
@@ -171,8 +174,7 @@ pub fn show(app: &mut App, ui: &mut Ui, id: &str) {
                             );
                             mod_row(&mut row, m, index, mod_type, &mut action);
                         }
-                    },
-                );
+                    });
             });
     }
 
@@ -260,7 +262,11 @@ fn mod_row(
             *action = Some(Action::Details(m.full_path.clone()));
         }
         if let Some(size) = m.size {
-            ui.label(RichText::new(util::format_bytes(size)).small().color(p.muted));
+            ui.label(
+                RichText::new(util::format_bytes(size))
+                    .small()
+                    .color(p.muted),
+            );
         }
     });
 }

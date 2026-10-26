@@ -145,8 +145,12 @@ fn server_view(app: &mut App, ui: &mut Ui) {
                 theme::pill(ui, &label, state_color(ui, state));
             });
             ui.add(
-                egui::Label::new(RichText::new(path.display().to_string()).small().color(p.muted))
-                    .truncate(),
+                egui::Label::new(
+                    RichText::new(path.display().to_string())
+                        .small()
+                        .color(p.muted),
+                )
+                .truncate(),
             );
         });
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -158,7 +162,11 @@ fn server_view(app: &mut App, ui: &mut Ui) {
     theme::tabs(
         ui,
         &mut app.tab,
-        &[(Tab::Config, "Config"), (Tab::Mods, "Mods"), (Tab::Control, "Control")],
+        &[
+            (Tab::Config, "Config"),
+            (Tab::Mods, "Mods"),
+            (Tab::Control, "Control"),
+        ],
     );
     ui.add_space(12.0);
 

@@ -53,12 +53,26 @@ impl ServerProcess {
         #[cfg(windows)]
         job::assign(&child);
 
-        let stdout = child.stdout.take().ok_or_else(|| anyhow!("Failed to capture stdout"))?;
-        let stderr = child.stderr.take().ok_or_else(|| anyhow!("Failed to capture stderr"))?;
-        let stdin = child.stdin.take().ok_or_else(|| anyhow!("Failed to capture stdin"))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| anyhow!("Failed to capture stdout"))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| anyhow!("Failed to capture stderr"))?;
+        let stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| anyhow!("Failed to capture stdin"))?;
 
         let open_streams = Arc::new(AtomicUsize::new(2));
-        spawn_reader(stdout, false, Arc::clone(&console), Arc::clone(&open_streams));
+        spawn_reader(
+            stdout,
+            false,
+            Arc::clone(&console),
+            Arc::clone(&open_streams),
+        );
         spawn_reader(stderr, true, console, Arc::clone(&open_streams));
 
         Ok(Self {

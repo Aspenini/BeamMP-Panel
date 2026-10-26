@@ -36,7 +36,11 @@ pub fn claim() -> Claim {
 
     // Stale or missing lock: become the primary instance.
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).ok();
-    if let Some(port) = listener.as_ref().and_then(|l| l.local_addr().ok()).map(|a| a.port()) {
+    if let Some(port) = listener
+        .as_ref()
+        .and_then(|l| l.local_addr().ok())
+        .map(|a| a.port())
+    {
         let _ = util::atomic_write(&lock_path, port.to_string().as_bytes());
     }
     Claim::Primary(listener)

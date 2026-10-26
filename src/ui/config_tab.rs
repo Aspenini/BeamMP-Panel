@@ -61,7 +61,9 @@ pub fn show(app: &mut App, ui: &mut Ui, id: &str) {
                     .add_enabled(is_dirty, theme::primary_button(ui, "Save changes"))
                     .on_hover_text("Ctrl+S")
                     .clicked();
-                revert = ui.add_enabled(is_dirty, egui::Button::new("Revert")).clicked();
+                revert = ui
+                    .add_enabled(is_dirty, egui::Button::new("Revert"))
+                    .clicked();
                 reload = ui
                     .add(theme::link_button(ui, "Reload from disk"))
                     .on_hover_text("Discard edits and re-read ServerConfig.toml")
@@ -112,7 +114,10 @@ pub fn show(app: &mut App, ui: &mut Ui, id: &str) {
                 ui.end_row();
 
                 label(ui, "Visibility");
-                ui.checkbox(&mut general.private, "Private (hidden from the server list)");
+                ui.checkbox(
+                    &mut general.private,
+                    "Private (hidden from the server list)",
+                );
                 ui.end_row();
             });
         });
@@ -142,7 +147,10 @@ pub fn show(app: &mut App, ui: &mut Ui, id: &str) {
                 ui.end_row();
 
                 label(ui, "Guests");
-                ui.checkbox(&mut general.allow_guests, "Allow players without a BeamMP account");
+                ui.checkbox(
+                    &mut general.allow_guests,
+                    "Allow players without a BeamMP account",
+                );
                 ui.end_row();
             });
         });
@@ -180,19 +188,24 @@ pub fn show(app: &mut App, ui: &mut Ui, id: &str) {
                 ui.vertical(|ui| {
                     ui.checkbox(&mut general.log_chat, "Log chat messages");
                     ui.checkbox(&mut general.debug, "Debug output");
-                    ui.checkbox(&mut general.information_packet, "Answer server info queries")
-                        .on_hover_text("Lets the launcher show server details without joining");
+                    ui.checkbox(
+                        &mut general.information_packet,
+                        "Answer server info queries",
+                    )
+                    .on_hover_text("Lets the launcher show server details without joining");
                 });
                 ui.end_row();
 
                 label(ui, "Updates");
-                ui.checkbox(&mut config.misc.im_scared_of_updates, "Hide update reminders");
+                ui.checkbox(
+                    &mut config.misc.im_scared_of_updates,
+                    "Hide update reminders",
+                );
                 ui.end_row();
 
                 label(ui, "Reminder interval");
                 ui.add(
-                    TextEdit::singleline(&mut config.misc.update_reminder_time)
-                        .desired_width(80.0),
+                    TextEdit::singleline(&mut config.misc.update_reminder_time).desired_width(80.0),
                 )
                 .on_hover_text("e.g. 30s, 10min, 1h, 1d");
                 ui.end_row();
@@ -208,10 +221,16 @@ pub fn show(app: &mut App, ui: &mut Ui, id: &str) {
             );
             ui.add_space(4.0);
             panel_options_changed |= ui
-                .checkbox(&mut server.auto_start, "Start this server when the panel opens")
+                .checkbox(
+                    &mut server.auto_start,
+                    "Start this server when the panel opens",
+                )
                 .changed();
             panel_options_changed |= ui
-                .checkbox(&mut server.auto_restart, "Restart automatically if it crashes")
+                .checkbox(
+                    &mut server.auto_restart,
+                    "Restart automatically if it crashes",
+                )
                 .on_hover_text("Gives up after 3 crashes within 5 minutes")
                 .changed();
         });
@@ -267,7 +286,10 @@ fn map_picker(ui: &mut Ui, map: &mut String) {
     let label = STOCK_MAPS
         .iter()
         .find(|(_, id)| id.eq_ignore_ascii_case(&current))
-        .map_or_else(|| format!("Custom: {current}"), |(name, _)| (*name).to_string());
+        .map_or_else(
+            || format!("Custom: {current}"),
+            |(name, _)| (*name).to_string(),
+        );
 
     ui.vertical(|ui| {
         egui::ComboBox::from_id_salt("map_picker")
@@ -283,7 +305,11 @@ fn map_picker(ui: &mut Ui, map: &mut String) {
                     }
                 }
             });
-        ui.add(TextEdit::singleline(map).desired_width(FIELD_WIDTH).font(egui::TextStyle::Monospace))
-            .on_hover_text("For modded maps use /levels/<folder name>/info.json");
+        ui.add(
+            TextEdit::singleline(map)
+                .desired_width(FIELD_WIDTH)
+                .font(egui::TextStyle::Monospace),
+        )
+        .on_hover_text("For modded maps use /levels/<folder name>/info.json");
     });
 }

@@ -166,7 +166,10 @@ impl ServerList {
     }
 
     pub fn save(&self) -> Result<()> {
-        util::atomic_write(&Self::path()?, serde_json::to_string_pretty(self)?.as_bytes())
+        util::atomic_write(
+            &Self::path()?,
+            serde_json::to_string_pretty(self)?.as_bytes(),
+        )
     }
 
     pub fn get(&self, id: &str) -> Option<&ServerEntry> {
@@ -180,7 +183,10 @@ impl ServerList {
     /// Register a server folder. Returns the new entry's id.
     pub fn add_server(&mut self, path: PathBuf) -> Result<String> {
         if let Some(existing) = self.servers.iter().find(|s| same_path(&s.path, &path)) {
-            return Err(anyhow!("This folder is already added as \"{}\"", existing.name));
+            return Err(anyhow!(
+                "This folder is already added as \"{}\"",
+                existing.name
+            ));
         }
         let entry = ServerEntry::new(path)?;
         let id = entry.id.clone();

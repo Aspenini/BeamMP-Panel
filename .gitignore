@@ -3,7 +3,7 @@
 **/*.rs.bk
 *.pdb
 
-# `just build` output
+# Generated portable app and installer (scripts/tasks.ps1)
 /dist/
 
 # IDE

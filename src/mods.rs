@@ -131,7 +131,8 @@ pub fn scan(
 }
 
 fn has_zip_extension(path: &Path) -> bool {
-    path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("zip"))
+    path.extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("zip"))
 }
 
 impl ContentCache {
@@ -307,10 +308,22 @@ mod tests {
 
     #[test]
     fn classifies_zip_entries() {
-        assert_eq!(classify_entry(b"levels/italy/info.json"), Some((true, &b"italy"[..])));
-        assert_eq!(classify_entry(b"mod/Levels/foo/"), Some((true, &b"foo"[..])));
-        assert_eq!(classify_entry(b"vehicles/pickup/a.jbeam"), Some((false, &b"pickup"[..])));
-        assert_eq!(classify_entry(b"vehicles\\pickup\\a.jbeam"), Some((false, &b"pickup"[..])));
+        assert_eq!(
+            classify_entry(b"levels/italy/info.json"),
+            Some((true, &b"italy"[..]))
+        );
+        assert_eq!(
+            classify_entry(b"mod/Levels/foo/"),
+            Some((true, &b"foo"[..]))
+        );
+        assert_eq!(
+            classify_entry(b"vehicles/pickup/a.jbeam"),
+            Some((false, &b"pickup"[..]))
+        );
+        assert_eq!(
+            classify_entry(b"vehicles\\pickup\\a.jbeam"),
+            Some((false, &b"pickup"[..]))
+        );
         assert_eq!(classify_entry(b"levels/"), Some((true, &b""[..])));
         assert_eq!(classify_entry(b"levels"), None);
         assert_eq!(classify_entry(b"lua/ge/extensions/x.lua"), None);

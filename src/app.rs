@@ -53,8 +53,14 @@ pub struct StatusMessage {
 }
 
 pub enum Dialog {
-    RemoveServer { id: String, name: String },
-    DeleteMod { path: PathBuf, name: String },
+    RemoveServer {
+        id: String,
+        name: String,
+    },
+    DeleteMod {
+        path: PathBuf,
+        name: String,
+    },
     /// `None` while the details are being read
     ModDetails(Option<ModDetailInfo>),
     ConfirmQuit,
@@ -77,7 +83,9 @@ pub struct ModsView {
 enum QuitState {
     Running,
     /// Waiting for servers to stop before closing.
-    StoppingServers { deadline: Instant },
+    StoppingServers {
+        deadline: Instant,
+    },
     /// Close for real; don't intercept the close request.
     Closing,
 }
@@ -227,7 +235,9 @@ impl App {
     pub fn save_settings(&mut self) {
         self.ctx.set_theme(self.settings.theme.preference());
         for session in self.sessions.values() {
-            session.console.set_max_lines(self.settings.console_max_lines);
+            session
+                .console
+                .set_max_lines(self.settings.console_max_lines);
         }
         if let Err(e) = self.settings.save() {
             self.set_status(format!("Failed to save settings: {e}"), true);
@@ -245,7 +255,11 @@ impl App {
         };
         match self.servers.add_server(path) {
             Ok(id) => {
-                let name = self.servers.get(&id).map(|s| s.name.clone()).unwrap_or_default();
+                let name = self
+                    .servers
+                    .get(&id)
+                    .map(|s| s.name.clone())
+                    .unwrap_or_default();
                 self.selected = Some(id);
                 self.set_status(format!("Added server: {name}"), false);
                 self.save_server_list();
@@ -264,7 +278,10 @@ impl App {
             if self.selected.as_deref() == Some(id) {
                 self.selected = self.servers.servers.first().map(|s| s.id.clone());
             }
-            self.set_status("Server removed from the panel (files were not deleted)", false);
+            self.set_status(
+                "Server removed from the panel (files were not deleted)",
+                false,
+            );
             self.save_server_list();
         }
     }
@@ -489,7 +506,11 @@ impl App {
                     self.set_status(format!("Added {added} client mod(s)"), false);
                 } else {
                     self.set_status(
-                        format!("Added {added}, failed {}: {}", errors.len(), errors.join("; ")),
+                        format!(
+                            "Added {added}, failed {}: {}",
+                            errors.len(),
+                            errors.join("; ")
+                        ),
                         true,
                     );
                 }
@@ -504,13 +525,16 @@ impl App {
 
     fn hide_window(&mut self) {
         self.window_hidden = true;
-        self.ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+        self.ctx
+            .send_viewport_cmd(egui::ViewportCommand::Visible(false));
     }
 
     fn show_window(&mut self) {
         self.window_hidden = false;
-        self.ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-        self.ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+        self.ctx
+            .send_viewport_cmd(egui::ViewportCommand::Visible(true));
+        self.ctx
+            .send_viewport_cmd(egui::ViewportCommand::Minimized(false));
         self.ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
     }
 

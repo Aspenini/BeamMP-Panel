@@ -1,0 +1,3 @@
+# Ship a self-contained MSVC executable instead of requiring a separate VC++ runtime.
+[target.'cfg(all(windows, target_env = "msvc"))']
+rustflags = ["-C", "target-feature=+crt-static"]

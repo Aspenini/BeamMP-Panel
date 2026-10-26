@@ -13,7 +13,11 @@ enum Outcome {
 
 fn modal(ctx: &Context, id: &str) -> Modal {
     let style = ctx.global_style();
-    let p = if style.visuals.dark_mode { &theme::DARK } else { &theme::LIGHT };
+    let p = if style.visuals.dark_mode {
+        &theme::DARK
+    } else {
+        &theme::LIGHT
+    };
     Modal::new(Id::unique(id))
         .backdrop_color(egui::Color32::from_black_alpha(140))
         .frame(
@@ -44,7 +48,10 @@ pub fn show(app: &mut App, ctx: &Context) {
             Dialog::RemoveServer { id, name } => {
                 title(ui, "Remove server?");
                 ui.label(format!("\"{name}\" will be removed from the panel."));
-                note(ui, "No files are deleted. You can add the folder again later.");
+                note(
+                    ui,
+                    "No files are deleted. You can add the folder again later.",
+                );
                 if buttons(ui, "Remove", false) {
                     outcome = Outcome::RemoveServer(id.clone());
                 }
@@ -52,7 +59,11 @@ pub fn show(app: &mut App, ctx: &Context) {
             Dialog::DeleteMod { path, name } => {
                 title(ui, "Delete mod?");
                 ui.label(format!("\"{name}\" will be permanently deleted from disk."));
-                ui.label(RichText::new("This cannot be undone.").small().color(p.danger));
+                ui.label(
+                    RichText::new("This cannot be undone.")
+                        .small()
+                        .color(p.danger),
+                );
                 if buttons(ui, "Delete", true) {
                     outcome = Outcome::DeleteMod(path.clone(), name.clone());
                 }

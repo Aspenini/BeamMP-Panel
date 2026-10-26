@@ -113,7 +113,9 @@ impl ServerSession {
     }
 
     pub fn uptime(&self) -> Option<Duration> {
-        self.process.as_ref().and(self.started_at.map(|t| t.elapsed()))
+        self.process
+            .as_ref()
+            .and(self.started_at.map(|t| t.elapsed()))
     }
 
     pub fn restart_in(&self) -> Option<Duration> {
@@ -242,7 +244,11 @@ impl ServerSession {
 
     /// Advance timers and react to process output/exit. Returns the events
     /// that happened and the next time `tick` needs to run, if any.
-    pub fn tick(&mut self, server_path: &Path, auto_restart: bool) -> (Vec<Event>, Option<Instant>) {
+    pub fn tick(
+        &mut self,
+        server_path: &Path,
+        auto_restart: bool,
+    ) -> (Vec<Event>, Option<Instant>) {
         let now = Instant::now();
         let mut events = Vec::new();
 
@@ -289,7 +295,13 @@ impl ServerSession {
         (events, self.next_deadline())
     }
 
-    fn on_exit(&mut self, now: Instant, expected: bool, auto_restart: bool, events: &mut Vec<Event>) {
+    fn on_exit(
+        &mut self,
+        now: Instant,
+        expected: bool,
+        auto_restart: bool,
+        events: &mut Vec<Event>,
+    ) {
         self.process = None;
         self.started_at = None;
         self.stop_deadline = None;
@@ -424,7 +436,7 @@ fn parse_player_row(line: &str) -> Option<PlayerEntry> {
     })
 }
 
-/// End-to-end tests against `examples/fake_server.rs`, which `cargo test` builds.
+/// End-to-end tests against `examples/fake_server.rs`; build it before running tests.
 #[cfg(test)]
 mod process_tests {
     use super::*;
@@ -437,9 +449,14 @@ mod process_tests {
             let exe = std::env::current_exe().unwrap();
             let examples = exe.parent().unwrap().parent().unwrap().join("examples");
             let fake = examples.join(format!("fake_server{}", std::env::consts::EXE_SUFFIX));
-            assert!(fake.is_file(), "{} missing; run via `cargo test`", fake.display());
+            assert!(
+                fake.is_file(),
+                "{} missing; run `cargo build --example fake_server` before `cargo test` (or use `just check`)",
+                fake.display()
+            );
 
-            let dir = std::env::temp_dir().join(format!("beammp-panel-test-{}", uuid::Uuid::new_v4()));
+            let dir =
+                std::env::temp_dir().join(format!("beammp-panel-test-{}", uuid::Uuid::new_v4()));
             std::fs::create_dir_all(&dir).unwrap();
             std::fs::copy(&fake, dir.join(crate::process::SERVER_EXE)).unwrap();
             Self(dir)
@@ -477,7 +494,11 @@ mod process_tests {
     fn wait_for_line(session: &ServerSession, needle: &str) {
         let deadline = Instant::now() + Duration::from_secs(10);
         while !session.console.to_text().contains(needle) {
-            assert!(Instant::now() < deadline, "no {needle:?} in:\n{}", session.console.to_text());
+            assert!(
+                Instant::now() < deadline,
+                "no {needle:?} in:\n{}",
+                session.console.to_text()
+            );
             std::thread::sleep(Duration::from_millis(20));
         }
     }
@@ -492,16 +513,28 @@ mod process_tests {
         wait_for_line(&s, "a line on stderr");
 
         let text = s.console.to_text();
-        assert!(text.contains("invalid utf-8: \u{fffd}\u{fffd} end"), "{text}");
-        assert!(text.contains("[WARN] colored warning\n"), "ANSI not stripped: {text}");
+        assert!(
+            text.contains("invalid utf-8: \u{fffd}\u{fffd} end"),
+            "{text}"
+        );
+        assert!(
+            text.contains("[WARN] colored warning\n"),
+            "ANSI not stripped: {text}"
+        );
         {
             let lines = s.console.lock();
-            let stderr = lines.lines.iter().find(|l| l.text == "a line on stderr").unwrap();
+            let stderr = lines
+                .lines
+                .iter()
+                .find(|l| l.text == "a line on stderr")
+                .unwrap();
             assert_eq!(stderr.kind, LineKind::Error);
         }
 
         s.request_player_list().unwrap();
-        tick_until(&mut s, &server, false, |e| matches!(e, Event::PlayersUpdated(2)));
+        tick_until(&mut s, &server, false, |e| {
+            matches!(e, Event::PlayersUpdated(2))
+        });
         assert_eq!(s.players[1].name, "John Doe Racing");
 
         s.command_input = "say hello".into();
@@ -513,7 +546,13 @@ mod process_tests {
         s.stop(Duration::from_secs(5));
         assert!(s.state() == State::Stopping);
         tick_until(&mut s, &server, true, |e| {
-            matches!(e, Event::Exited { code: Some(0), expected: true })
+            matches!(
+                e,
+                Event::Exited {
+                    code: Some(0),
+                    expected: true
+                }
+            )
         });
         // A requested stop never auto-restarts
         assert!(s.state() == State::Stopped);
@@ -527,7 +566,13 @@ mod process_tests {
         wait_for_line(&s, "ready");
         s.send_command("crash").unwrap();
         tick_until(&mut s, &server, true, |e| {
-            matches!(e, Event::Exited { code: Some(3), expected: false })
+            matches!(
+                e,
+                Event::Exited {
+                    code: Some(3),
+                    expected: false
+                }
+            )
         });
         assert!(s.state() == State::Restarting);
         assert!(s.restart_in().unwrap() > Duration::ZERO);
@@ -572,7 +617,9 @@ mod process_tests {
         assert_eq!(s.console.lock().lines.len(), 500);
         // Still responsive after the flood
         s.stop(Duration::from_secs(5));
-        tick_until(&mut s, &server, false, |e| matches!(e, Event::Exited { .. }));
+        tick_until(&mut s, &server, false, |e| {
+            matches!(e, Event::Exited { .. })
+        });
     }
 }
 

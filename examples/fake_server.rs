@@ -11,7 +11,10 @@ fn main() {
     {
         let mut out = std::io::stdout().lock();
         let _ = writeln!(out, "[25/10/26 21:00:00] [INFO] BeamMP-Server v3 (fake)");
-        let _ = writeln!(out, "\x1b[33m[25/10/26 21:00:00] [WARN] colored warning\x1b[0m");
+        let _ = writeln!(
+            out,
+            "\x1b[33m[25/10/26 21:00:00] [WARN] colored warning\x1b[0m"
+        );
         // Invalid UTF-8 must not stop the panel's reader
         let _ = out.write_all(b"[25/10/26 21:00:00] [INFO] invalid utf-8: \xff\xfe end\n");
         let _ = writeln!(out, "[25/10/26 21:00:01] [INFO] ready");

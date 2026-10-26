@@ -59,7 +59,10 @@ fn main() -> eframe::Result<()> {
     }
 }
 
-fn native_options(icon: Option<&egui::IconData>, renderer: eframe::Renderer) -> eframe::NativeOptions {
+fn native_options(
+    icon: Option<&egui::IconData>,
+    renderer: eframe::Renderer,
+) -> eframe::NativeOptions {
     let mut viewport = egui::ViewportBuilder::default()
         .with_inner_size([1200.0, 720.0])
         .with_min_inner_size([760.0, 420.0])

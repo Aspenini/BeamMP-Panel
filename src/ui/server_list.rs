@@ -76,43 +76,46 @@ pub fn show(app: &mut App, ui: &mut Ui) {
                     }
                 });
 
-            egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
-                ui.spacing_mut().item_spacing.y = 2.0;
-                for server in &app.servers.servers {
-                    let state = app.state_of(&server.id);
-                    let selected = app.selected.as_deref() == Some(server.id.as_str());
-                    let response = server_row(ui, &server.name, state, selected)
-                        .on_hover_text(server.path.display().to_string());
+            egui::ScrollArea::vertical()
+                .auto_shrink(false)
+                .show(ui, |ui| {
+                    ui.spacing_mut().item_spacing.y = 2.0;
+                    for server in &app.servers.servers {
+                        let state = app.state_of(&server.id);
+                        let selected = app.selected.as_deref() == Some(server.id.as_str());
+                        let response = server_row(ui, &server.name, state, selected)
+                            .on_hover_text(server.path.display().to_string());
 
-                    if response.clicked() {
-                        action = Some(Action::Select(server.id.clone()));
+                        if response.clicked() {
+                            action = Some(Action::Select(server.id.clone()));
+                        }
+                        response.context_menu(|ui| {
+                            let running = state != State::Stopped;
+                            if !running && ui.button("Start").clicked() {
+                                action = Some(Action::Start(server.id.clone()));
+                            }
+                            if running && ui.button("Stop").clicked() {
+                                action = Some(Action::Stop(server.id.clone()));
+                            }
+                            if ui.button("Open folder").clicked() {
+                                action = Some(Action::OpenFolder(server.path.clone()));
+                            }
+                            ui.separator();
+                            if ui
+                                .add_enabled(!running, egui::Button::new("Remove from panel"))
+                                .on_disabled_hover_text("Stop the server first")
+                                .clicked()
+                            {
+                                action =
+                                    Some(Action::Remove(server.id.clone(), server.name.clone()));
+                            }
+                        });
                     }
-                    response.context_menu(|ui| {
-                        let running = state != State::Stopped;
-                        if !running && ui.button("Start").clicked() {
-                            action = Some(Action::Start(server.id.clone()));
-                        }
-                        if running && ui.button("Stop").clicked() {
-                            action = Some(Action::Stop(server.id.clone()));
-                        }
-                        if ui.button("Open folder").clicked() {
-                            action = Some(Action::OpenFolder(server.path.clone()));
-                        }
-                        ui.separator();
-                        if ui
-                            .add_enabled(!running, egui::Button::new("Remove from panel"))
-                            .on_disabled_hover_text("Stop the server first")
-                            .clicked()
-                        {
-                            action = Some(Action::Remove(server.id.clone(), server.name.clone()));
-                        }
-                    });
-                }
-                if app.servers.servers.is_empty() {
-                    ui.add_space(8.0);
-                    ui.label(RichText::new("  No servers added").small().color(p.muted));
-                }
-            });
+                    if app.servers.servers.is_empty() {
+                        ui.add_space(8.0);
+                        ui.label(RichText::new("  No servers added").small().color(p.muted));
+                    }
+                });
         });
 
     match action {
@@ -159,7 +162,11 @@ fn server_row(ui: &mut Ui, name: &str, state: State, selected: bool) -> egui::Re
     }
 
     let left = rect.left() + 14.0;
-    painter.circle_filled(egui::pos2(left + 4.0, rect.center().y), 4.0, super::state_color(ui, state));
+    painter.circle_filled(
+        egui::pos2(left + 4.0, rect.center().y),
+        4.0,
+        super::state_color(ui, state),
+    );
 
     let text_left = left + 18.0;
     let max_width = rect.right() - text_left - 8.0;
